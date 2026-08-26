@@ -1,0 +1,133 @@
+<template>
+  <div class={containerClass}>
+    <div class="locator" onclick={handleLocatorClick}>
+      <lightning-icon
+        class="locator-icon"
+        icon-name="utility:target"
+        size="small"
+        alternative-text="Center map"
+      ></lightning-icon>
+    </div>
+    <template lwc:if={showDesktopMapControls}>
+      <div class="zoom-controls">
+        <button class="zoom-button" title="Zoom in" onclick={handleZoomIn}>
+          +
+        </button>
+        <button class="zoom-button" title="Zoom out" onclick={handleZoomOut}>
+          −
+        </button>
+      </div>
+    </template>
+    <lightning-map
+      class="map-canvas"
+      map-markers={markersWithResource}
+      onmarkerselect={onMarkerSelect}
+      selected-marker-value={selectedMarkerValue}
+      options={mapOptions}
+      list-view={listView}
+      center={center}
+      zoom-level={zoom}
+    >
+    </lightning-map>
+    <template lwc:if={showCard}>
+      <div class={cardClass}>
+        <div class="card-top-arrow"></div>
+        <div class="card-header">
+          <div class="card-title">
+            <c-object-icon
+              icon-url={currentMarkerIconUrl}
+              color={currentMarker.value.color}
+            ></c-object-icon>
+            <p class="title-text">{currentMarkerTitle}</p>
+          </div>
+          <button class="x" title="Close" onclick={handleCloseCardClick}>
+            <lightning-icon
+              alternative-text="Close"
+              icon-name="utility:close"
+              size="x-small"
+              class="x-icon"
+            ></lightning-icon>
+          </button>
+        </div>
+        <div class="card-main">
+          <div class="card-details">
+            <div class="card-details-row first-row">
+              <p class="card-field-line left">{currentMarkerFirstDetailFieldValue}</p>
+              <p class="card-field-line right">{distanceLine}</p>
+            </div>
+            <template for:each={cardFieldRows} for:item="row">
+              <div key={row.key} class={row.rowClass}>
+                <template lwc:if={row.isFullWidth}>
+                  <p class="card-field-line left card-field-line_wrap">
+                    {row.leftLabel}:
+                    <template lwc:if={row.leftIsPhone}>
+                      <a class="card-phone-link" href={row.leftTelHref}>{row.leftValue}</a>
+                    </template>
+                    <template lwc:else>
+                      {row.leftValue}
+                    </template>
+                  </p>
+                </template>
+                <template lwc:else>
+                  <p class="card-field-line left">{row.leftText}</p>
+                  <p class="card-field-line right">{row.rightText}</p>
+                </template>
+              </div>
+            </template>
+          </div>
+          <div class="card-buttons-container">
+            <template lwc:if={currentMarkerCanSelfSchedule}>
+              <button
+                class="slds-button_stretch card-action-button card-self-schedule-button"
+                onclick={handleSelfScheduleClick}
+              >
+                Self Schedule
+              </button>
+            </template>
+            <div class="card-button-row">
+              <button
+                class="slds-m-left_x-small slds-button_stretch card-action-button card-primary-button"
+                onclick={handleRedirectClick}
+              >
+                Open Record
+              </button>
+              <button
+                class="slds-m-left_x-small slds-button_stretch card-action-button card-primary-button"
+                onclick={handleRouteClick}
+              >
+                Get Directions
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer">
+          <button
+            onclick={handleBackCardClick}
+            title="Previous"
+            class="card-footer-arrow"
+          >
+            <lightning-icon
+              size="x-small"
+              class="arrow-icon"
+              icon-name="utility:chevronleft"
+              alternative-text="Previous"
+            ></lightning-icon>
+          </button>
+          {footerLabel}
+          <button
+            onclick={handleNextCardClick}
+            title="Next"
+            class="card-footer-arrow"
+          >
+            <lightning-icon
+              size="x-small"
+              class="arrow-icon"
+              icon-name="utility:chevronright"
+              alternative-text="Next"
+            ></lightning-icon>
+          </button>
+        </div>
+      </div>
+    </template>
+  </div>
+</template>

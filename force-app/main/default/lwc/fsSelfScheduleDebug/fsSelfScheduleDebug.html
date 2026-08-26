@@ -1,0 +1,103 @@
+<template>
+  <template lwc:if={visible}>
+    <div class="debug-panel">
+      <div class="debug-header">
+        <p class="debug-title">Self Scheduling Debug</p>
+        <button class="hide-button" onclick={handleHide}>Hide</button>
+      </div>
+
+      <div class="debug-inputs">
+        <lightning-input
+          class="debug-field"
+          type="text"
+          label="Service Resource Id"
+          value={resourceId}
+          data-field="resourceId"
+          onchange={handleInputChange}
+        ></lightning-input>
+        <lightning-input
+          class="debug-field"
+          type="text"
+          label="Latitude"
+          value={latitude}
+          data-field="latitude"
+          onchange={handleInputChange}
+          placeholder="-36.8484597000000000"
+        ></lightning-input>
+        <lightning-input
+          class="debug-field"
+          type="text"
+          label="Longitude"
+          value={longitude}
+          data-field="longitude"
+          onchange={handleInputChange}
+          placeholder="174.7633315000000000"
+        ></lightning-input>
+        <p class="hint">
+          Lat/Long accept up to 16 decimal places. Apply recenters the map and
+          reloads appointments in the configured radius.
+        </p>
+        <lightning-button
+          class="debug-field"
+          label="Apply"
+          variant="brand"
+          onclick={handleApply}
+        ></lightning-button>
+      </div>
+
+      <h3 class="section-title">Diagnostics</h3>
+      <table class="diagnostics-table">
+        <template for:each={diagnosticRows} for:item="row">
+          <tr key={row.key}>
+            <td class="diagnostics-label">{row.label}</td>
+            <td class="diagnostics-value">{row.value}</td>
+          </tr>
+        </template>
+      </table>
+
+      <h3 class="section-title">Card field access</h3>
+      <template lwc:if={hasFieldAccessRows}>
+        <table class="diagnostics-table">
+          <template for:each={fieldAccessRows} for:item="row">
+            <tr key={row.key}>
+              <td class="diagnostics-label">{row.label}</td>
+              <td class="diagnostics-value">
+                <span class={row.statusClass}>{row.status}</span>
+                {row.detail}
+              </td>
+            </tr>
+          </template>
+        </table>
+      </template>
+      <template lwc:else>
+        <p class="hint">No CMDT card fields were parsed.</p>
+      </template>
+
+      <h3 class="section-title">SOQL</h3>
+      <template lwc:if={hasDisplaySoql}>
+        <pre class="soql-block">{displaySoql}</pre>
+      </template>
+      <template lwc:else>
+        <p class="hint">No appointment query has run yet.</p>
+      </template>
+
+      <template lwc:if={hasErrors}>
+        <h3 class="section-title section-title_error">Errors</h3>
+        <ul class="error-list">
+          <template for:each={diagnosticErrors} for:item="err">
+            <li key={err.key}>
+              <strong>{err.source}:</strong> {err.message}
+            </li>
+          </template>
+        </ul>
+      </template>
+
+      <h3 class="section-title">Execution trace</h3>
+      <ul class="trace-list">
+        <template for:each={executionTrace} for:item="entry">
+          <li key={entry.key}>{entry.text}</li>
+        </template>
+      </ul>
+    </div>
+  </template>
+</template>

@@ -1,0 +1,174 @@
+.main-container {
+  position: relative;
+  background-color: white;
+  float: left;
+  height: 100%;
+  width: 100%;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  transform: translateY(85%);
+  pointer-events: auto;
+  box-shadow: 0 -1px 4px #b3b3b3;
+}
+
+.grabber {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 16px;
+  cursor: pointer;
+}
+
+.grabber-bar {
+  width: 32px;
+  height: 4px;
+  border-radius: 2px;
+  background-color: #bebec0;
+}
+
+.header {
+  cursor: pointer;
+}
+
+.header:focus {
+  outline: 2px solid #0176d3;
+  outline-offset: 2px;
+}
+
+.header .tile-container {
+  height: 48px;
+}
+
+.title-tile {
+  height: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.title-label {
+  color: black;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin-top: 40px;
+  padding-bottom: 20px;
+}
+
+.empty-state-text {
+  padding: 20px 0;
+  color: #444444;
+  font-size: 16px;
+  text-align: center;
+}
+
+.list {
+  overflow-y: auto;
+  background-color: white;
+}
+
+.tile-subtitle {
+  white-space: normal;
+  line-height: 1.35;
+  color: #444444;
+}
+
+.tile-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.slds-item {
+  padding: 12px 16px;
+}
+
+.icon-and-text {
+  display: flex;
+  flex: 1;
+  width: 90%;
+}
+
+.actions-button {
+  display: flex;
+  justify-content: flex-end;
+  width: 44px;
+}
+
+.overflow-button {
+  background: white;
+  color: #0d7fa8;
+  border: none;
+  border-radius: 10px;
+  height: 44px;
+  width: 44px;
+  line-height: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.popover-container {
+  z-index: 1;
+  position: absolute;
+  background-color: white;
+  color: #0d7fa8;
+  right: 55px;
+  pointer-events: auto;
+}
+
+.popover-shown {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  box-shadow: 0 2px #d4d4d4;
+  border: 1px #c9c9c9 solid;
+  border-radius: 12px;
+  width: 200px;
+  height: 150px;
+}
+
+.popover-hidden {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  height: 0;
+  width: 0;
+  padding: 0;
+}
+
+.action-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 22px;
+  padding: 13px;
+}
+
+.action-icon {
+  margin-right: 8px;
+}
+
+.popover-mask {
+  height: 100%;
+  width: 100%;
+  background-color: transparent;
+  pointer-events: auto;
+  position: absolute;
+}
+
+.list-spinner {
+  margin-top: 24px;
+  position: relative;
+  min-height: 48px;
+}

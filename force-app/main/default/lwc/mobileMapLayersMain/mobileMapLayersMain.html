@@ -1,0 +1,67 @@
+<template>
+  <div class={containerClass} onclick={handleTap}>
+    <div class="top-chrome">
+      <div class="chrome-row">
+        <div class="user-banner">
+          <div class="user-banner-text">
+            <p class="user-banner-name">{bannerUserName}</p>
+            <p class="user-banner-origin">{bannerOrigin}</p>
+            <p class="user-banner-search">{searchSummary}</p>
+          </div>
+          <button class="refresh-button" title="Refresh" onclick={handleRefresh}>
+            <lightning-icon
+              icon-name="utility:refresh"
+              size="x-small"
+              alternative-text="Refresh"
+            ></lightning-icon>
+          </button>
+        </div>
+        <template lwc:if={showDebugChip}>
+          <button class="debug-chip" onclick={toggleDebugPanel}>Debug</button>
+        </template>
+      </div>
+      <c-fs-self-schedule-debug
+        visible={debugVisible}
+        resource-id={debugResourceId}
+        latitude={debugLatitude}
+        longitude={debugLongitude}
+        diagnostic-rows={diagnosticRows}
+        diagnostic-errors={diagnosticErrors}
+        execution-trace={executionTrace}
+        display-soql={displaySoql}
+        field-access-rows={fieldAccessRows}
+        ondebuginput={handleDebugInput}
+        ondebugapply={handleDebugApply}
+        ondebughide={handleDebugHide}
+      ></c-fs-self-schedule-debug>
+    </div>
+    <div class="map-container page">
+      <c-mobile-map
+        form-factor={formFactor}
+        filtered-markers={filteredMarkers}
+        current-marker={currentMarker}
+        current-marker-ind={currentMarkerInd}
+        set-current-marker={setCurrentMarker}
+        redirect-to-marker-details={redirectToMarkerDetails}
+        route-to-marker-location={routeToMarkerLocation}
+        self-schedule-appointment={selfScheduleAppointment}
+        handle-error={handleError}
+      >
+      </c-mobile-map>
+    </div>
+    <div class="locations-list-container page">
+      <c-locations-list
+        form-factor={formFactor}
+        filtered-markers={filteredMarkers}
+        current-object={currentObject}
+        set-current-marker={setCurrentMarker}
+        redirect-to-marker-details={redirectToMarkerDetails}
+        route-to-marker-location={routeToMarkerLocation}
+        self-schedule-appointment={selfScheduleAppointment}
+        is-ios={isIos}
+        handle-error={handleError}
+      >
+      </c-locations-list>
+    </div>
+  </div>
+</template>

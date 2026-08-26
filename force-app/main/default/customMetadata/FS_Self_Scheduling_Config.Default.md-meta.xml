@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Default</label>
+    <protected>false</protected>
+    <values>
+        <field>Search_Radius__c</field>
+        <value xsi:type="xsd:double">10</value>
+    </values>
+    <values>
+        <field>Distance_Unit__c</field>
+        <value xsi:type="xsd:string">km</value>
+    </values>
+    <values>
+        <field>Status_Values__c</field>
+        <value xsi:type="xsd:string">None,Scheduled</value>
+    </values>
+    <values>
+        <field>Boolean_Filters__c</field>
+        <value xsi:type="xsd:string">Is_Ready_Now__c=true</value>
+    </values>
+    <values>
+        <field>Scheduling_Policy_Name__c</field>
+        <value xsi:type="xsd:string">Self Scheduling</value>
+    </values>
+    <values>
+        <field>Target_Status__c</field>
+        <value xsi:type="xsd:string">Dispatched</value>
+    </values>
+    <values>
+        <field>Debug_Enabled__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Max_Results__c</field>
+        <value xsi:type="xsd:double">200</value>
+    </values>
+    <values>
+        <field>Evaluate_Territory_Rules__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Evaluate_Skill_Rules__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Card_Detail_Fields__c</field>
+        <value xsi:type="xsd:string">Work Type:WorkType.Name,Duration(Mins):DurationInMinutes,Contact Name:Contact.Name,Contact Phone:Contact.Phone</value>
+    </values>
+    <values>
+        <field>Bypass_Fsl_Schedule_Here__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+</CustomMetadata>
+

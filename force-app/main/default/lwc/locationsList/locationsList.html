@@ -1,0 +1,113 @@
+<template>
+  <template lwc:if={showPopover}>
+    <div class="popover-mask" onclick={handlePopoverMaskClick}></div>
+  </template>
+  <div class="main-container">
+    <div class="popover-container">
+      <div class={popoverClass}>
+        <div class="action-item" onclick={handleViewClick}>
+          <lightning-icon
+            class="action-icon"
+            size="x-small"
+            icon-name="utility:record_alt"
+          ></lightning-icon>
+          <p>Open Record</p>
+        </div>
+        <div class="action-item" onclick={handleDirectionsClick}>
+          <lightning-icon
+            class="action-icon"
+            size="x-small"
+            icon-name="utility:location"
+          ></lightning-icon>
+          <p>Get Directions</p>
+        </div>
+        <div class="action-item" onclick={handleSelfScheduleClick}>
+          <lightning-icon
+            class="action-icon"
+            size="x-small"
+            icon-name="utility:user"
+          ></lightning-icon>
+          <p>Self Schedule</p>
+        </div>
+      </div>
+    </div>
+    <div class="lgc-bg">
+      <template lwc:if={loaded}>
+        <ul
+          class="header slds-has-dividers_bottom-space"
+          role="button"
+          tabindex="0"
+          aria-expanded={expandedAria}
+          onclick={handleGrabberClick}
+          onkeydown={handleHeaderKeydown}
+        >
+          <div class="grabber">
+            <div class="grabber-bar"></div>
+          </div>
+          <li class="slds-item">
+            <div class="tile-container">
+              <lightning-tile class="title-tile">
+                <p class="title-label">
+                  {filteredMarkers.length} {titleObjectText}
+                </p>
+              </lightning-tile>
+            </div>
+          </li>
+        </ul>
+        <ul class="list slds-has-dividers_bottom-space">
+          <template lwc:if={listItems.length}>
+            <template for:each={listItems} for:item="item">
+              <li
+                key={item.id}
+                data-index={item.index}
+                class="slds-item"
+                onclick={handleItemClick}
+              >
+                <div class="tile-container">
+                  <div class="icon-and-text">
+                    <c-object-icon
+                      icon-url={item.iconUrl}
+                      color={item.color}
+                    ></c-object-icon>
+                    <lightning-tile label={item.title}>
+                      <p class="tile-subtitle">{item.subtitle}</p>
+                    </lightning-tile>
+                  </div>
+                  <div class="actions-button">
+                    <button
+                      class="overflow-button slds-var-m-left_x-small slds-button_stretch"
+                      title="Actions"
+                      onclick={handleActionsButtonClick}
+                    >
+                      •••
+                    </button>
+                  </div>
+                </div>
+              </li>
+            </template>
+          </template>
+          <template lwc:else>
+            <div class="empty-state">
+              <lightning-icon
+                icon-name="utility:checkin"
+                size="large"
+                alternative-text="No results"
+              ></lightning-icon>
+              <p class="empty-state-text">
+                No results in this area.<br />Try changing the filter options.
+              </p>
+            </div>
+          </template>
+        </ul>
+      </template>
+      <template lwc:else>
+        <div class="list-spinner">
+          <lightning-spinner
+            alternative-text="Loading"
+            size="medium"
+          ></lightning-spinner>
+        </div>
+      </template>
+    </div>
+  </div>
+</template>

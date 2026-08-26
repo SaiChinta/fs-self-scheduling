@@ -1,0 +1,36 @@
+.confirm-modal-container {
+  background: white;
+  border-radius: 16px;
+}
+
+.ok-button {
+  height: 40px;
+  width: 110px;
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 22px;
+  border: none;
+  color: white;
+  background-color: #0d7fa8;
+}
+
+.cancel-button {
+  height: 40px;
+  width: 110px;
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 22px;
+  border: 2px solid #0d7fa8;
+  color: #0d7fa8;
+  background-color: white;
+}
+
+@media (min-width: 768px) {
+  .ok-button,
+  .cancel-button {
+    height: 44px;
+    width: 128px;
+  }
+}

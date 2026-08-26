@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Card_Detail_Fields__c</fullName>
+    <description>Service Appointment card fields as Label:FieldApiName pairs, one per line or comma-separated. Supports one-level relationships such as WorkType.Name. Invalid tokens are skipped.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>Card Detail Fields</label>
+    <length>32768</length>
+    <securityClassification>Confidential</securityClassification>
+    <type>LongTextArea</type>
+    <visibleLines>5</visibleLines>
+</CustomField>

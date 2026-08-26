@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Boolean_Filters__c</fullName>
+    <description>Comma-separated Service Appointment boolean query filters as FieldApiName=true or FieldApiName=false. Not used for sharing.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>Boolean Filters</label>
+    <length>32768</length>
+    <securityClassification>Confidential</securityClassification>
+    <type>LongTextArea</type>
+    <visibleLines>3</visibleLines>
+</CustomField>

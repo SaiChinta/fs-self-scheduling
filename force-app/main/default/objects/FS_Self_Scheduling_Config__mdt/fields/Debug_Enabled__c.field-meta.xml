@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Debug_Enabled__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When true, five taps reveal the debug panel for resource and location overrides.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>Debug Enabled</label>
+    <securityClassification>Confidential</securityClassification>
+    <type>Checkbox</type>
+</CustomField>

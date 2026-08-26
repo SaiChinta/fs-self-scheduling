@@ -1,0 +1,195 @@
+<template>
+  <div class="buttons-container">
+    <template lwc:if={showObjectFilter}>
+      <button
+        class="button filter-button active-button"
+        onclick={handleTopFiltersObjClick}
+      >
+        <div class="button-text">
+          <div class="button-text-title">Type</div>
+          <div class="button-text-main">{filteredObjectText}</div>
+        </div>
+        <div>
+          <lightning-icon
+            class="icon"
+            size="x-small"
+            icon-name="utility:chevrondown"
+          ></lightning-icon>
+        </div>
+      </button>
+    </template>
+    <button class={filterFieldButtonClass} onclick={handleTopFiltersFieldClick}>
+      <div class="button-text">
+        <div class="button-text-title">Filter By</div>
+        <div class="button-text-main">{filteredFieldText}</div>
+      </div>
+      <div>
+        <lightning-icon
+          class="icon"
+          size="x-small"
+          icon-name="utility:chevrondown"
+        ></lightning-icon>
+      </div>
+    </button>
+  </div>
+
+  <template lwc:if={showObjectFilter}>
+    <div class="bottom-sheet object-filter-bottom-sheet">
+      <div class="header">
+        <div class="grabber">
+          <div class="grabber-bar"></div>
+        </div>
+        <div class="sheet-title-and-buttons">
+          <button class="back" title="Back"></button>
+          <div class="filters-sheet-title">Select an Option</div>
+          <button class="x" title="Close" onclick={handleCloseObjFiltersClick}>
+            <lightning-icon
+              alternative-text="Close"
+              icon-name="utility:close"
+              size="x-small"
+              class="x-icon"
+            ></lightning-icon>
+          </button>
+        </div>
+        <lightning-menu-divider></lightning-menu-divider>
+      </div>
+      <div class="sheet-content">
+        <lightning-radio-group
+          label="Object"
+          variant="label-hidden"
+          options={objRadioOptions}
+          value={currentObjectFilter.value}
+          onchange={onObjRadioChange}
+          type="radio"
+        >
+        </lightning-radio-group>
+      </div>
+    </div>
+  </template>
+
+  <div class="bottom-sheet field-filter-bottom-sheet">
+    <div class="header">
+      <div class="grabber">
+        <div class="grabber-bar"></div>
+      </div>
+      <div class="sheet-title-and-buttons">
+        <button class="back" title="Back"></button>
+        <div class="filters-sheet-title">
+          Filter {currentObjectFilter.plural} By
+        </div>
+        <button class="x" title="Close" onclick={handleCloseFieldFiltersClick}>
+          <lightning-icon
+            alternative-text="Close"
+            icon-name="utility:close"
+            size="x-small"
+            class="x-icon"
+          ></lightning-icon>
+        </button>
+      </div>
+      <lightning-menu-divider></lightning-menu-divider>
+    </div>
+    <div class="sheet-content">
+      <div class="field-combo-container">
+        <lightning-combobox
+          label="Filter By"
+          options={fieldRadioOptions}
+          value={selectedFieldFilter.value}
+        >
+        </lightning-combobox>
+        <div class="field-combo-cover" onclick={handleFieldComboClick}></div>
+      </div>
+      <template lwc:if={selectedFieldFilter.value}>
+        <div class="field-input-container">
+          <template lwc:if={isFieldTypeRegular}>
+            <lightning-input
+              type={inputType}
+              label={selectedFieldFilter.label}
+              value={selectedFieldFilter.input}
+              onchange={onFieldInputChange}
+              required
+            >
+            </lightning-input>
+          </template>
+          <template lwc:elseif={isFieldTypeBoolean}>
+            <div class="boolean-input-frame">
+              <lightning-input
+                type="toggle"
+                label={selectedFieldFilter.label}
+                checked={selectedFieldFilter.input}
+                onchange={onFieldInputChange}
+                message-toggle-active=""
+                message-toggle-inactive=""
+              >
+              </lightning-input>
+            </div>
+          </template>
+          <template lwc:elseif={isFieldTypePicklist}>
+            <label class="slds-form-element__label" for="picklist-input"
+              >{selectedFieldFilter.label}</label
+            >
+            <select
+              id="picklist-input"
+              class="picklist-input slds-input slds-combobox__input"
+              onchange={onFieldInputChange}
+            >
+              <template for:each={filterValueOptions} for:item="option">
+                <option class="slds-dropdown" key={option.value}>
+                  {option.label}
+                </option>
+              </template>
+            </select>
+          </template>
+        </div>
+      </template>
+    </div>
+    <lightning-menu-divider></lightning-menu-divider>
+    <div class="sheet-footer">
+      <button
+        onclick={handleShowResultsClick}
+        disabled={showResultsDisabled}
+        class="button filters-sheet-show-results"
+      >
+        Show Results
+      </button>
+      <button
+        onclick={handleClearClick}
+        disabled={clearDisabled}
+        class="button filters-sheet-clear"
+      >
+        Clear Filter
+      </button>
+    </div>
+  </div>
+
+  <div class="bottom-sheet fields-list-bottom-sheet">
+    <div class="header">
+      <div class="grabber">
+        <div class="grabber-bar"></div>
+      </div>
+      <div class="sheet-title-and-buttons">
+        <button class="back" title="Back"></button>
+        <div class="filters-sheet-title">Filter By</div>
+        <button class="x" title="Close" onclick={handleCloseFieldsListClick}>
+          <lightning-icon
+            alternative-text="Close"
+            icon-name="utility:close"
+            size="x-small"
+            class="x-icon"
+          ></lightning-icon>
+        </button>
+      </div>
+      <lightning-menu-divider></lightning-menu-divider>
+    </div>
+    <div class="sheet-content">
+      <lightning-radio-group
+        label="Field"
+        variant="label-hidden"
+        options={fieldRadioOptions}
+        value={currentFieldFilter.field.value}
+        onchange={onFieldRadioChange}
+        type="radio"
+      >
+      </lightning-radio-group>
+    </div>
+  </div>
+</template>

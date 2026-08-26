@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Bypass_Fsl_Schedule_Here__c</fullName>
+    <defaultValue>true</defaultValue>
+    <description>When true, self-schedule sets times, inserts Assigned Resource, and dispatches without FSL.ScheduleService.scheduleHere. When false, scheduleHere is used.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>Bypass FSL Schedule Here</label>
+    <securityClassification>Confidential</securityClassification>
+    <type>Checkbox</type>
+</CustomField>

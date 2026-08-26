@@ -1,0 +1,274 @@
+.main-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  height: 100%;
+  width: 100%;
+}
+
+.locator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 48px;
+  width: 48px;
+  background-color: white;
+  border-radius: 100px;
+  top: 96px;
+  right: 16px;
+  position: absolute;
+  z-index: 1;
+  box-shadow: 0 4px #c4c4c4;
+}
+
+.form-Large .locator {
+  top: 132px;
+}
+
+.zoom-controls {
+  position: absolute;
+  top: 188px;
+  right: 16px;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px #c4c4c4;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.zoom-button {
+  width: 48px;
+  height: 40px;
+  border: none;
+  background: white;
+  color: #032d60;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.zoom-button + .zoom-button {
+  border-top: 1px solid #c9c9c9;
+}
+
+.map-canvas {
+  height: 100%;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+}
+
+.cards {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  background-color: white;
+  border: 2px #9faab5 solid;
+  border-radius: 10px;
+  width: 360px;
+  max-width: 92%;
+  top: 55%;
+  height: auto;
+  box-shadow: 0 2px 3px #d4d4d4;
+}
+
+.card-top-arrow {
+  height: 16px;
+  width: 16px;
+  background-color: white;
+  position: absolute;
+  left: 50%;
+  top: -1px;
+  border-left: 2px #9faab5 solid;
+  border-top: 2px #9faab5 solid;
+  margin-left: -8px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  height: 48px;
+}
+
+.card-title {
+  padding: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.title-text {
+  color: #181818;
+  font-size: 20px;
+  font-weight: 500;
+  margin-left: 8px;
+}
+
+.x {
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 16px;
+}
+
+.card-main {
+  padding: 16px;
+  padding-top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  width: 100%;
+  height: auto;
+  text-align: left;
+}
+
+.card-details {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  font-size: 14px;
+}
+
+.card-details-row {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+}
+
+.first-row {
+  margin-bottom: 12px;
+}
+
+.card-details-text {
+  margin-right: 30px;
+  flex: 1;
+  color: black;
+}
+
+.card-secondary-title {
+  color: #444444;
+  font-size: 14px;
+}
+
+.card-secondary-text {
+  overflow: hidden;
+  max-height: 36px;
+}
+
+.card-buttons-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  margin-top: 10px;
+  width: 100%;
+}
+
+.card-button-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.card-action-button {
+  background: white;
+  color: #0d7fa8;
+  border: 2px #0d7fa8 solid;
+  height: 44px;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 500;
+}
+
+.card-self-schedule-button {
+  width: 100%;
+  margin-bottom: 8px;
+  background: #0d7fa8;
+  color: white;
+}
+
+.card-primary-button {
+  margin: 0;
+  width: 160px;
+  max-width: 48%;
+}
+
+.card-footer {
+  width: 100%;
+  background: #eeeeee;
+  color: #444444;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  height: 50px;
+  border-radius: 0 0 10px 10px;
+  font-size: 16px;
+}
+
+.card-footer-arrow {
+  border: none;
+  background: none;
+  height: 48px;
+  width: 48px;
+}
+
+.card-field-line {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: #181818;
+  font-size: 13px;
+  line-height: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-details-row_full {
+  flex-wrap: wrap;
+}
+
+.card-details-row_full .card-field-line_wrap {
+  flex: 1 1 100%;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+}
+
+.card-phone-link {
+  color: #0176d3;
+  text-decoration: underline;
+}
+
+.card-field-line.right {
+  text-align: right;
+  margin-right: 0;
+}
+
+.first-row .card-field-line.left {
+  font-weight: 600;
+}
+
+.card-details-row {
+  margin-bottom: 8px;
+  gap: 12px;
+}
+
+.cards.form-Small {
+  width: calc(100% - 16px);
+  max-width: 100%;
+}
+
+.cards.form-Large {
+  width: 420px;
+}

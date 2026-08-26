@@ -1,0 +1,128 @@
+.debug-panel {
+  position: relative;
+  z-index: 20;
+  top: auto;
+  left: auto;
+  right: auto;
+  max-height: 55vh;
+  overflow: auto;
+  background: #fffbe6;
+  border: 1px solid #e0c200;
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 2px 8px #d4d4d4;
+}
+
+.debug-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.debug-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0;
+  color: #032d60;
+}
+
+.hide-button {
+  border: none;
+  background: transparent;
+  color: #0176d3;
+}
+
+.debug-inputs {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+}
+
+.debug-field {
+  margin-bottom: 8px;
+}
+
+.hint {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: #414042;
+}
+
+.section-title {
+  margin: 10px 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #032d60;
+}
+
+.section-title_error {
+  color: #ba0517;
+}
+
+.diagnostics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.diagnostics-table tr {
+  border-bottom: 1px solid #efe3a8;
+}
+
+.diagnostics-label {
+  font-weight: 600;
+  padding: 0.2rem 0.5rem 0.2rem 0;
+  white-space: nowrap;
+  vertical-align: top;
+  color: #2e844a;
+}
+
+.diagnostics-value {
+  padding: 0.2rem 0;
+  width: 100%;
+  word-break: break-word;
+  font-family: monospace;
+}
+
+.error-list,
+.trace-list {
+  margin: 0.25rem 0 0.5rem;
+  padding-left: 1.1rem;
+  font-size: 11px;
+}
+
+.error-list li {
+  color: #ba0517;
+  margin-bottom: 0.2rem;
+}
+
+.trace-list li {
+  margin-bottom: 0.2rem;
+  line-height: 1.35;
+  font-family: monospace;
+  word-break: break-word;
+}
+
+.soql-block {
+  margin: 0 0 0.5rem;
+  padding: 0.5rem;
+  background: #fff;
+  border: 1px solid #efe3a8;
+  border-radius: 4px;
+  font-size: 10px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: monospace;
+  color: #181818;
+}
+
+.access-ok {
+  color: #2e844a;
+  font-weight: 600;
+}
+
+.access-bad {
+  color: #ba0517;
+  font-weight: 600;
+}
