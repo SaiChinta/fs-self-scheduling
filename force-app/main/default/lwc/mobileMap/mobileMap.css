@@ -63,69 +63,69 @@
 
 .cards {
   position: absolute;
+  left: 50%;
+  top: 42%;
+  z-index: 5;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
+  align-items: stretch;
   background-color: white;
   border: 2px #9faab5 solid;
-  border-radius: 10px;
+  border-radius: 16px;
   width: 360px;
-  max-width: 92%;
-  top: 55%;
-  height: auto;
-  box-shadow: 0 2px 3px #d4d4d4;
-}
-
-.card-top-arrow {
-  height: 16px;
-  width: 16px;
-  background-color: white;
-  position: absolute;
-  left: 50%;
-  top: -1px;
-  border-left: 2px #9faab5 solid;
-  border-top: 2px #9faab5 solid;
-  margin-left: -8px;
+  max-width: calc(100% - 16px);
+  max-height: 70%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 2px 8px #d4d4d4;
+  overflow: hidden;
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   width: 100%;
-  height: 48px;
+  min-height: 48px;
+  flex-shrink: 0;
 }
 
 .card-title {
-  padding: 16px;
+  padding: 12px 8px 12px 16px;
   display: flex;
   align-items: center;
+  min-width: 0;
+  flex: 1;
 }
 
 .title-text {
   color: #181818;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 500;
   margin-left: 8px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .x {
   cursor: pointer;
   background: none;
   border: none;
-  padding: 16px;
+  padding: 12px 16px;
+  flex-shrink: 0;
 }
 
 .card-main {
-  padding: 16px;
-  padding-top: 0;
+  padding: 0 16px 12px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  justify-content: space-between;
   width: 100%;
-  height: auto;
+  min-height: 0;
+  overflow-y: auto;
   text-align: left;
+  flex: 1;
 }
 
 .card-details {
@@ -139,26 +139,12 @@
   display: flex;
   flex-direction: row;
   width: 100%;
+  margin-bottom: 8px;
+  gap: 12px;
 }
 
 .first-row {
   margin-bottom: 12px;
-}
-
-.card-details-text {
-  margin-right: 30px;
-  flex: 1;
-  color: black;
-}
-
-.card-secondary-title {
-  color: #444444;
-  font-size: 14px;
-}
-
-.card-secondary-text {
-  overflow: hidden;
-  max-height: 36px;
 }
 
 .card-buttons-container {
@@ -167,12 +153,14 @@
   justify-content: space-between;
   margin-top: 10px;
   width: 100%;
+  flex-shrink: 0;
 }
 
 .card-button-row {
   display: flex;
   flex-direction: row;
   justify-content: space-between;
+  gap: 8px;
   width: 100%;
 }
 
@@ -197,8 +185,8 @@
 
 .card-primary-button {
   margin: 0;
-  width: 160px;
-  max-width: 48%;
+  flex: 1;
+  max-width: none;
 }
 
 .card-footer {
@@ -209,17 +197,18 @@
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 0;
-  height: 50px;
-  border-radius: 0 0 10px 10px;
-  font-size: 16px;
+  padding: 8px 0;
+  min-height: 44px;
+  flex-shrink: 0;
+  border-radius: 0 0 14px 14px;
+  font-size: 14px;
 }
 
 .card-footer-arrow {
   border: none;
   background: none;
-  height: 48px;
-  width: 48px;
+  height: 44px;
+  width: 44px;
 }
 
 .card-field-line {
@@ -229,9 +218,9 @@
   color: #181818;
   font-size: 13px;
   line-height: 18px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .card-details-row_full {
@@ -240,9 +229,6 @@
 
 .card-details-row_full .card-field-line_wrap {
   flex: 1 1 100%;
-  white-space: normal;
-  overflow: visible;
-  text-overflow: unset;
 }
 
 .card-phone-link {
@@ -259,14 +245,33 @@
   font-weight: 600;
 }
 
-.card-details-row {
-  margin-bottom: 8px;
-  gap: 12px;
-}
-
 .cards.form-Small {
   width: calc(100% - 16px);
-  max-width: 100%;
+  max-width: calc(100% - 16px);
+  border-radius: 16px;
+}
+
+.cards.form-Small .title-text {
+  font-size: 16px;
+}
+
+.cards.form-Small .card-header,
+.cards.form-Small .card-title {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.cards.form-Small .card-main {
+  padding: 0 12px 10px;
+}
+
+.cards.form-Small .card-details-row {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cards.form-Small .card-field-line.right {
+  text-align: left;
 }
 
 .cards.form-Large {

@@ -68,8 +68,12 @@ public with sharing class FsSSPolicyMatcher {
         if (request.resourceId == null) {
             return context;
         }
-        loadTerritories(context);
-        loadSkills(context);
+        if (context.evaluateTerritoryRules) {
+            loadTerritories(context);
+        }
+        if (context.evaluateSkillRules) {
+            loadSkills(context);
+        }
         loadPolicyRuleTypes(context, request.policyName);
         return context;
     }
@@ -84,6 +88,38 @@ public with sharing class FsSSPolicyMatcher {
         context.policyRuleTypes = new Set<String>();
         loadPolicyRuleTypes(context, policyName);
         return new List<String>(context.policyRuleTypes);
+    }
+
+    /**
+     * @description Loads Skill Requirement rows keyed by RelatedRecordId.
+     * @param relatedRecordIds Parent Work Order or Work Order Line Item Ids.
+     * @return Requirements grouped by related record; empty when none are readable.
+     */
+    public static Map<Id, List<SkillRequirement>> loadSkillRequirements(
+        Set<Id> relatedRecordIds
+    ) {
+        Map<Id, List<SkillRequirement>> requirements = new Map<Id, List<SkillRequirement>>();
+        if (relatedRecordIds == null || relatedRecordIds.isEmpty()) {
+            return requirements;
+        }
+        if (!Schema.sObjectType.SkillRequirement.isAccessible()) {
+            return requirements;
+        }
+        for (SkillRequirement requirement : [
+            SELECT SkillId, SkillLevel, RelatedRecordId
+            FROM SkillRequirement
+            WHERE RelatedRecordId IN :relatedRecordIds
+            WITH USER_MODE
+        ]) {
+            if (!requirements.containsKey(requirement.RelatedRecordId)) {
+                requirements.put(
+                    requirement.RelatedRecordId,
+                    new List<SkillRequirement>()
+                );
+            }
+            requirements.get(requirement.RelatedRecordId).add(requirement);
+        }
+        return requirements;
     }
 
     /**

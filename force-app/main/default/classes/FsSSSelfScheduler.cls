@@ -26,6 +26,8 @@ public with sharing class FsSSSelfScheduler {
 
     /**
      * @description Pins the appointment to the resource at now, then dispatches it.
+     *              When this resource is already assigned, times are updated and
+     *              no second Assigned Resource is inserted.
      * @param appointmentId Service Appointment Id.
      * @param resourceId Service Resource Id.
      * @return The dispatched Service Appointment Id.
@@ -41,9 +43,13 @@ public with sharing class FsSSSelfScheduler {
             ? settingsOverride
             : FsSSConfigParser.loadDefault();
         ServiceAppointment appointment = lockAppointment(appointmentId);
-        validateClaimable(appointment, settings);
-        if (settings.bypassFslScheduleHere) {
-            forceSchedule(appointment, resourceId);
+        validateReadyNow(appointment, settings);
+        Boolean alreadyAssignedToResource = hasOwnAssignment(
+            appointment.Id,
+            resourceId
+        );
+        if (settings.bypassFslScheduleHere || alreadyAssignedToResource) {
+            forceSchedule(appointment, resourceId, alreadyAssignedToResource);
         } else {
             Id policyId = resolvePolicyId(settings.schedulingPolicyName);
             ScheduleRequest request = new ScheduleRequest();
@@ -76,7 +82,7 @@ public with sharing class FsSSSelfScheduler {
             SELECT
                 Id,
                 Status,
-                Is_Ready_Now__c,
+                FS_Ready_Now__c,
                 Duration,
                 DurationType,
                 DurationInMinutes,
@@ -95,14 +101,16 @@ public with sharing class FsSSSelfScheduler {
 
     /**
      * @description Validates the appointment is still a Ready Now candidate.
+     *              Territory and skill eligibility is applied when the map is loaded,
+     *              not during claim.
      * @param appointment Locked appointment.
      * @param settings Parsed CMDT settings.
      */
-    private static void validateClaimable(
+    private static void validateReadyNow(
         ServiceAppointment appointment,
         FsSSConfigParser.Settings settings
     ) {
-        if (appointment.Is_Ready_Now__c != true) {
+        if (appointment.FS_Ready_Now__c != true) {
             throw auraError('This appointment is not Ready Now.');
         }
         if (!settings.statusValues.isEmpty() &&
@@ -110,15 +118,39 @@ public with sharing class FsSSSelfScheduler {
         ) {
             throw auraError('This appointment is no longer in an eligible status.');
         }
+    }
+
+    /**
+     * @description True when this resource already owns the appointment.
+     *              Throws when another resource is assigned.
+     * @param appointmentId Service Appointment Id.
+     * @param resourceId Service Resource Id being claimed.
+     * @return True when an Assigned Resource for this resource already exists.
+     */
+    private static Boolean hasOwnAssignment(Id appointmentId, Id resourceId) {
+        if (!Schema.sObjectType.AssignedResource.isAccessible()) {
+            throw auraError('You do not have permission to self-schedule.');
+        }
+        Integer ownCount = [
+            SELECT COUNT()
+            FROM AssignedResource
+            WHERE ServiceAppointmentId = :appointmentId
+            AND ServiceResourceId = :resourceId
+            WITH USER_MODE
+        ];
+        if (ownCount > 0) {
+            return true;
+        }
         Integer assignedCount = [
             SELECT COUNT()
             FROM AssignedResource
-            WHERE ServiceAppointmentId = :appointment.Id
+            WHERE ServiceAppointmentId = :appointmentId
             WITH USER_MODE
         ];
         if (assignedCount > 0) {
             throw auraError('This appointment is already assigned.');
         }
+        return false;
     }
 
     /**
@@ -183,10 +215,16 @@ public with sharing class FsSSSelfScheduler {
 
     /**
      * @description Pins times and inserts Assigned Resource without scheduleHere.
+     *              When the resource is already assigned, only times are updated.
      * @param appointment Locked appointment.
      * @param resourceId Service Resource Id.
+     * @param alreadyAssigned True when this resource already has Assigned Resource.
      */
-    private static void forceSchedule(ServiceAppointment appointment, Id resourceId) {
+    private static void forceSchedule(
+        ServiceAppointment appointment,
+        Id resourceId,
+        Boolean alreadyAssigned
+    ) {
         Integer minutes = claimDurationMinutes(appointment);
         Datetime startTime = System.now();
         ServiceAppointment times = new ServiceAppointment(
@@ -199,6 +237,9 @@ public with sharing class FsSSSelfScheduler {
             new List<ServiceAppointment>{ times }
         );
         update timeDecision.getRecords();
+        if (alreadyAssigned) {
+            return;
+        }
         AssignedResource assignment = new AssignedResource(
             ServiceAppointmentId = appointment.Id,
             ServiceResourceId = resourceId

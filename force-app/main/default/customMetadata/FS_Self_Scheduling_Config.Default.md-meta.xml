@@ -16,7 +16,7 @@
     </values>
     <values>
         <field>Boolean_Filters__c</field>
-        <value xsi:type="xsd:string">Is_Ready_Now__c=true</value>
+        <value xsi:type="xsd:string">FS_Ready_Now__c=true</value>
     </values>
     <values>
         <field>Scheduling_Policy_Name__c</field>

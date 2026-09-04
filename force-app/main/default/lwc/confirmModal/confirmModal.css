@@ -1,36 +1,63 @@
+:host {
+  --slds-c-modal-radius-border: 16px;
+  --slds-c-modal-sizing-width: 20rem;
+  --slds-c-modal-sizing-max-width: 20rem;
+}
+
 .confirm-modal-container {
   background: white;
   border-radius: 16px;
+  overflow: hidden;
 }
 
-.ok-button {
+.confirm-modal-header,
+.confirm-modal-body {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.confirm-modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 16px 16px;
+}
+
+.ok-button,
+.cancel-button {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
   height: 40px;
-  width: 110px;
   border-radius: 16px;
   font-size: 14px;
   font-weight: 600;
   line-height: 22px;
+}
+
+.ok-button {
   border: none;
   color: white;
   background-color: #0d7fa8;
 }
 
 .cancel-button {
-  height: 40px;
-  width: 110px;
-  border-radius: 16px;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 22px;
   border: 2px solid #0d7fa8;
   color: #0d7fa8;
   background-color: white;
 }
 
 @media (min-width: 768px) {
+  :host {
+    --slds-c-modal-sizing-width: 24rem;
+    --slds-c-modal-sizing-max-width: 24rem;
+  }
+
   .ok-button,
   .cancel-button {
     height: 44px;
-    width: 128px;
   }
 }

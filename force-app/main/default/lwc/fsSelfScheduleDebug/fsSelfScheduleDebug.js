@@ -23,6 +23,41 @@ export default class FsSelfScheduleDebug extends LightningElement {
     return (this.fieldAccessRows || []).length > 0;
   }
 
+  get resourceDisplayInfo() {
+    return {
+      primaryField: "Name"
+    };
+  }
+
+  get resourceMatchingInfo() {
+    return {
+      primaryField: { fieldPath: "Name" }
+    };
+  }
+
+  get resourceFilter() {
+    return {
+      criteria: [
+        {
+          fieldPath: "IsActive",
+          operator: "eq",
+          value: true
+        }
+      ]
+    };
+  }
+
+  handleResourceChange(event) {
+    this.dispatchEvent(
+      new CustomEvent("debuginput", {
+        detail: {
+          field: "resourceId",
+          value: event.detail.recordId || ""
+        }
+      })
+    );
+  }
+
   handleInputChange(event) {
     this.dispatchEvent(
       new CustomEvent("debuginput", {

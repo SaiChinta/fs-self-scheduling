@@ -7,14 +7,17 @@
       </div>
 
       <div class="debug-inputs">
-        <lightning-input
+        <lightning-record-picker
           class="debug-field"
-          type="text"
-          label="Service Resource Id"
+          label="Service Resource"
+          placeholder="Search active service resources"
+          object-api-name="ServiceResource"
+          display-info={resourceDisplayInfo}
+          matching-info={resourceMatchingInfo}
+          filter={resourceFilter}
           value={resourceId}
-          data-field="resourceId"
-          onchange={handleInputChange}
-        ></lightning-input>
+          onchange={handleResourceChange}
+        ></lightning-record-picker>
         <lightning-input
           class="debug-field"
           type="text"

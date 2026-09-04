@@ -1,6 +1,10 @@
 import { LightningElement, wire } from "lwc";
 import { getObjectInfos } from "lightning/uiObjectInfoApi";
 import { NavigationMixin } from "lightning/navigation";
+import {
+  IsConsoleNavigation,
+  openTab
+} from "lightning/platformWorkspaceApi";
 import { ShowToastEvent } from "lightning/platformShowToastEvent";
 import FORM_FACTOR from "@salesforce/client/formFactor";
 import getMapAppointments from "@salesforce/apex/FsSSMapLayersService.getMapAppointments";
@@ -59,6 +63,13 @@ export default class MobileMapLayersMain extends NavigationMixin(
   lastBindStatuses = "";
   lastBindRadius = "";
   lastBindRowLimit = "";
+  lastMatchedResourceId = "";
+  lastPolicyMatchingApplied = "";
+  lastRadiusRowCount = "";
+  lastSkippedTerritoryCount = "";
+  lastSkippedSkillCount = "";
+  lastPolicyRuleTypes = "";
+  lastUnimplementedRuleTypes = "";
   overlappingLocationCount = 0;
   queriedObjects;
   markerLoadInFlight = false;
@@ -91,6 +102,9 @@ export default class MobileMapLayersMain extends NavigationMixin(
     }
   }
 
+  @wire(IsConsoleNavigation)
+  isConsoleNavigation;
+
   @wire(getObjectInfos, { objectApiNames: "$queriedObjects" })
   wiredObjectInfos({ data, error }) {
     if (data) {
@@ -106,8 +120,12 @@ export default class MobileMapLayersMain extends NavigationMixin(
     return this.currentObjectFilter;
   }
 
+  get isDesktopForm() {
+    return this.formFactor === "Large" || this.formFactor === "Medium";
+  }
+
   get showDebugChip() {
-    return this.settings.debugEnabled && this.formFactor === "Large";
+    return this.settings.debugEnabled;
   }
 
   get radiusLabel() {
@@ -123,7 +141,8 @@ export default class MobileMapLayersMain extends NavigationMixin(
   }
 
   get containerClass() {
-    return `find-nearby-main-container find-nearby-main-container form-${this.formFactor}`;
+    const layout = this.isDesktopForm ? "Large" : "Small";
+    return `find-nearby-main-container form-${layout}`;
   }
 
   get bannerUserName() {
@@ -199,6 +218,9 @@ export default class MobileMapLayersMain extends NavigationMixin(
       }
       this.resourceId = context.resourceId;
       this.resourceName = context.resourceName || "";
+      if (!this.debugAppliedResourceId) {
+        this.debugResourceId = context.resourceId;
+      }
       this.log("loadResourceContext ok", context);
       this.applyResourceLocation(context);
       this.refreshMarkers();
@@ -320,8 +342,29 @@ export default class MobileMapLayersMain extends NavigationMixin(
         result.bindRadius == null ? "" : String(result.bindRadius);
       this.lastBindRowLimit =
         result.bindRowLimit == null ? "" : String(result.bindRowLimit);
+      this.lastMatchedResourceId = result.matchedResourceId || "(none)";
+      this.lastPolicyMatchingApplied =
+        result.policyMatchingApplied == null
+          ? "(none)"
+          : String(result.policyMatchingApplied);
+      this.lastRadiusRowCount =
+        result.radiusRowCount == null ? "" : String(result.radiusRowCount);
+      this.lastSkippedTerritoryCount =
+        result.skippedTerritoryCount == null
+          ? "0"
+          : String(result.skippedTerritoryCount);
+      this.lastSkippedSkillCount =
+        result.skippedSkillCount == null
+          ? "0"
+          : String(result.skippedSkillCount);
+      this.lastPolicyRuleTypes = (result.policyRuleTypes || []).join(", ") || "(none)";
+      this.lastUnimplementedRuleTypes =
+        (result.unimplementedRuleTypes || []).join(", ") || "(none)";
       this.log("getMapAppointments returned", {
         count: result.rowCount,
+        radiusRowCount: result.radiusRowCount,
+        matchingApplied: result.policyMatchingApplied,
+        matchedResourceId: result.matchedResourceId,
         soqlLength: (result.soql || "").length
       });
       const records = rows
@@ -407,13 +450,66 @@ export default class MobileMapLayersMain extends NavigationMixin(
         cancelButtonText: "Cancel"
       });
     }
-    if (toOpen && this.filteredMarkers[index]) {
-      this[NavigationMixin.Navigate]({
-        type: "standard__webPage",
-        attributes: { url: this.filteredMarkers[index].value.navUrl }
-      });
+    if (toOpen && this.filteredMarkers[index]?.value?.id) {
+      await this.openAppointmentRecord(this.filteredMarkers[index].value.id);
     }
   };
+
+  /**
+   * @description Opens the Service Appointment for the current form factor.
+   *              Phone uses the Field Service Mobile deep link. Desktop and
+   *              tablet open a Lightning record view, as a console workspace
+   *              tab when the app is a console.
+   * @param recordId Service Appointment Id.
+   */
+  async openAppointmentRecord(recordId) {
+    if (this.isDesktopForm) {
+      await this.openAppointmentOnDesktop(recordId);
+      return;
+    }
+    this[NavigationMixin.Navigate]({
+      type: "standard__webPage",
+      attributes: {
+        url: `com.salesforce.fieldservice://v1/sObject/${recordId}/details`
+      }
+    });
+  }
+
+  /**
+   * @description Opens the appointment as a console tab when possible,
+   *              otherwise as a Lightning record page in the current app.
+   * @param recordId Service Appointment Id.
+   */
+  async openAppointmentOnDesktop(recordId) {
+    if (this.isConsoleNavigation) {
+      try {
+        await openTab({
+          recordId,
+          focus: true
+        });
+        return;
+      } catch {
+        this.navigateToAppointmentPage(recordId);
+        return;
+      }
+    }
+    this.navigateToAppointmentPage(recordId);
+  }
+
+  /**
+   * @description Opens the appointment as a Lightning record page.
+   * @param recordId Service Appointment Id.
+   */
+  navigateToAppointmentPage(recordId) {
+    this[NavigationMixin.Navigate]({
+      type: "standard__recordPage",
+      attributes: {
+        recordId,
+        objectApiName: "ServiceAppointment",
+        actionName: "view"
+      }
+    });
+  }
 
   routeToMarkerLocation = (ind) => {
     const index = ind ?? this.currentMarkerInd;
@@ -483,7 +579,7 @@ export default class MobileMapLayersMain extends NavigationMixin(
     }
     if (
       event.target.closest(
-        "c-fs-self-schedule-debug, lightning-input, lightning-button, button"
+        "c-fs-self-schedule-debug, lightning-input, lightning-button, lightning-record-picker, button"
       )
     ) {
       return;
@@ -599,6 +695,41 @@ export default class MobileMapLayersMain extends NavigationMixin(
         key: "d16",
         label: "Overlapping locations",
         value: String(this.overlappingLocationCount)
+      },
+      {
+        key: "d17",
+        label: "Matched resource Id",
+        value: this.lastMatchedResourceId || "(none)"
+      },
+      {
+        key: "d18",
+        label: "Policy matching applied",
+        value: this.lastPolicyMatchingApplied || "(pending)"
+      },
+      {
+        key: "d19",
+        label: "Radius row count",
+        value: this.lastRadiusRowCount || "(pending)"
+      },
+      {
+        key: "d20",
+        label: "Skipped territory",
+        value: this.lastSkippedTerritoryCount || "(pending)"
+      },
+      {
+        key: "d21",
+        label: "Skipped skill",
+        value: this.lastSkippedSkillCount || "(pending)"
+      },
+      {
+        key: "d22",
+        label: "Policy rule types",
+        value: this.lastPolicyRuleTypes || "(none)"
+      },
+      {
+        key: "d23",
+        label: "Unimplemented rules",
+        value: this.lastUnimplementedRuleTypes || "(none)"
       }
     ];
   }

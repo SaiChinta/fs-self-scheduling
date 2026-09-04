@@ -1,55 +1,45 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <BriefcaseDefinition xmlns="http://soap.sforce.com/2006/04/metadata">
-    <description>High volume briefcase that primes Ready Now work order line items and skill requirements, Ready Now service appointments, and the running user service resource with territory memberships and skills.</description>
-    <isActive>true</isActive>
-    <masterLabel>FS Self Scheduling</masterLabel>
-    <type>HighVolume</type>
     <briefcaseRules>
-        <filterLogic>1</filterLogic>
-        <isAscendingOrder>false</isAscendingOrder>
-        <queryScope>Everything</queryScope>
-        <recordLimit>2000</recordLimit>
-        <targetEntity>WorkOrderLineItem</targetEntity>
         <briefcaseRuleFilters>
             <filterOperator>e</filterOperator>
             <filterSeqNumber>1</filterSeqNumber>
             <filterValue>true</filterValue>
-            <targetEntityField>Is_Ready_Now__c</targetEntityField>
+            <targetEntityField>FS_Ready_Now__c</targetEntityField>
         </briefcaseRuleFilters>
+        <filterLogic>1</filterLogic>
+        <isAscendingOrder>false</isAscendingOrder>
+        <queryScope>Everything</queryScope>
+        <recordLimit>2000</recordLimit>
         <relatedRules>
             <isAscendingOrder>false</isAscendingOrder>
             <queryScope>Everything</queryScope>
             <recordLimit>2000</recordLimit>
-            <relationshipField>RelatedRecordId</relationshipField>
-            <relationshipType>ParentToChild</relationshipType>
-            <targetEntity>SkillRequirement</targetEntity>
+            <relatedRules>
+                <isAscendingOrder>false</isAscendingOrder>
+                <queryScope>Everything</queryScope>
+                <recordLimit>6000</recordLimit>
+                <relationshipField>RelatedRecordId</relationshipField>
+                <relationshipType>ParentToChild</relationshipType>
+                <targetEntity>SkillRequirement</targetEntity>
+            </relatedRules>
+            <relationshipField>FS_Work_Order_Line_Item__c</relationshipField>
+            <relationshipType>ChildToParent</relationshipType>
+            <targetEntity>WorkOrderLineItem</targetEntity>
         </relatedRules>
-    </briefcaseRules>
-    <briefcaseRules>
-        <filterLogic>1</filterLogic>
-        <isAscendingOrder>false</isAscendingOrder>
-        <queryScope>Everything</queryScope>
-        <recordLimit>2000</recordLimit>
         <targetEntity>ServiceAppointment</targetEntity>
-        <briefcaseRuleFilters>
-            <filterOperator>e</filterOperator>
-            <filterSeqNumber>1</filterSeqNumber>
-            <filterValue>true</filterValue>
-            <targetEntityField>Is_Ready_Now__c</targetEntityField>
-        </briefcaseRuleFilters>
     </briefcaseRules>
     <briefcaseRules>
-        <filterLogic>1</filterLogic>
-        <isAscendingOrder>false</isAscendingOrder>
-        <queryScope>Everything</queryScope>
-        <recordLimit>50</recordLimit>
-        <targetEntity>ServiceResource</targetEntity>
         <briefcaseRuleFilters>
             <filterOperator>e</filterOperator>
             <filterSeqNumber>1</filterSeqNumber>
             <filterValue>$User.Id</filterValue>
             <targetEntityField>RelatedRecordId</targetEntityField>
         </briefcaseRuleFilters>
+        <filterLogic>1</filterLogic>
+        <isAscendingOrder>false</isAscendingOrder>
+        <queryScope>Everything</queryScope>
+        <recordLimit>50</recordLimit>
         <relatedRules>
             <isAscendingOrder>false</isAscendingOrder>
             <queryScope>Everything</queryScope>
@@ -66,10 +56,15 @@
             <relationshipType>ParentToChild</relationshipType>
             <targetEntity>ServiceResourceSkill</targetEntity>
         </relatedRules>
+        <targetEntity>ServiceResource</targetEntity>
     </briefcaseRules>
     <briefcaseRules>
         <isAscendingOrder>false</isAscendingOrder>
         <queryScope>Everything</queryScope>
         <targetEntity>FS_Self_Scheduling_Config__mdt</targetEntity>
     </briefcaseRules>
+    <description>High volume briefcase that primes Ready Now work order line items and skill requirements, Ready Now service appointments, and the running user service resource with territory memberships and skills.</description>
+    <isActive>true</isActive>
+    <masterLabel>FS Self Scheduling</masterLabel>
+    <type>HighVolume</type>
 </BriefcaseDefinition>

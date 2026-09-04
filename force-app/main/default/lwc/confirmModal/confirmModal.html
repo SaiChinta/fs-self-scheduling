@@ -3,15 +3,16 @@
     <lightning-modal-header
       class="confirm-modal-header"
       label={header}
+      hide-close-button
     ></lightning-modal-header>
     <lightning-modal-body class="confirm-modal-body">{content}</lightning-modal-body>
-    <lightning-modal-footer class="confirm-modal-footer">
+    <div class="confirm-modal-footer">
       <button onclick={handleCancel} class="cancel-button">
         <label>{cancelButtonText}</label>
       </button>
       <button onclick={handleOk} class="ok-button">
         <label>{okButtonText}</label>
       </button>
-    </lightning-modal-footer>
+    </div>
   </div>
 </template>

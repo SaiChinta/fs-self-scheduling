@@ -90,7 +90,7 @@ private class FsSSMapLayersServiceTest {
     static void configParserReadsBooleanAndStatusTokens() {
         FS_Self_Scheduling_Config__mdt record = new FS_Self_Scheduling_Config__mdt(
             Status_Values__c = 'Open, Scheduled',
-            Boolean_Filters__c = 'Is_Ready_Now__c=true,BadToken,Other__c=false',
+            Boolean_Filters__c = 'FS_Ready_Now__c=true,BadToken,Other__c=false',
             Search_Radius__c = 15,
             Distance_Unit__c = 'km',
             Debug_Enabled__c = true,
@@ -103,7 +103,7 @@ private class FsSSMapLayersServiceTest {
         FsSSConfigParser.Settings settings = FsSSConfigParser.fromRecord(record);
         Test.stopTest();
         System.assertEquals(2, settings.statusValues.size(), 'Two statuses should parse');
-        System.assertEquals(true, settings.booleanFilters.get('Is_Ready_Now__c'), 'Ready Now filter should be true');
+        System.assertEquals(true, settings.booleanFilters.get('FS_Ready_Now__c'), 'Ready Now filter should be true');
         System.assertEquals(false, settings.booleanFilters.get('Other__c'), 'Other boolean should be false');
         System.assertEquals(true, settings.skippedBooleanTokens.contains('BadToken'), 'Bad token should be skipped');
         System.assertEquals(true, settings.evaluateTerritoryRules, 'Territory flag should default on');
@@ -183,6 +183,7 @@ private class FsSSMapLayersServiceTest {
             WHERE RelatedRecordId = :UserInfo.getUserId()
             LIMIT 1
         ];
+        FsSSMapLayersService.settingsOverride = mapQuerySettings(true, true);
         Test.startTest();
         FsSSMapLayersService.MapQueryResult queryResult = FsSSMapLayersService.getMapAppointments(
             ORIGIN_LAT,
@@ -190,15 +191,12 @@ private class FsSSMapLayersServiceTest {
             resource.Id
         );
         List<FsSSMapLayersService.MapAppointment> results = queryResult.appointments;
-        FsSSPolicyMatcher.ContextRequest contextRequest = new FsSSPolicyMatcher.ContextRequest();
-        contextRequest.resourceId = resource.Id;
-        contextRequest.policyName = 'Self Scheduling';
-        contextRequest.evaluateTerritoryRules = true;
-        contextRequest.evaluateSkillRules = true;
-        FsSSPolicyMatcher.buildContext(contextRequest);
         Test.stopTest();
         System.assertEquals(true, results.size() >= 1, 'At least the Ready Now appointment should return');
         System.assertEquals(results.size(), queryResult.rowCount, 'Row count should match appointments');
+        System.assertEquals(true, queryResult.policyMatchingApplied, 'Matching should run for a resolved resource');
+        System.assertEquals(resource.Id, queryResult.matchedResourceId, 'Matched resource should be the explicit Id');
+        System.assertEquals(true, queryResult.radiusRowCount >= queryResult.rowCount, 'Radius count should be at least the filtered size');
         System.assertEquals(true, queryResult.soql.contains('DISTANCE'), 'SOQL should use DISTANCE');
         System.assertEquals(
             false,
@@ -224,6 +222,233 @@ private class FsSSMapLayersServiceTest {
         }
         System.assertEquals(true, foundReady, 'Ready Nearby should be present');
         System.assertNotEquals(null, results[0].cardFields, 'Card fields list should be present');
+    }
+
+    /**
+     * @description Null resource Id injects the running user's Service Resource and still matches.
+     */
+    @IsTest
+    static void getMapAppointmentsNullResourceIdInjectsRunningUser() {
+        ServiceResource resource = [
+            SELECT Id
+            FROM ServiceResource
+            WHERE RelatedRecordId = :UserInfo.getUserId()
+            LIMIT 1
+        ];
+        FsSSMapLayersService.settingsOverride = mapQuerySettings(true, true);
+        Test.startTest();
+        FsSSMapLayersService.MapQueryResult queryResult = FsSSMapLayersService.getMapAppointments(
+            ORIGIN_LAT,
+            ORIGIN_LNG,
+            null
+        );
+        Test.stopTest();
+        System.assertEquals(true, queryResult.policyMatchingApplied, 'Matching should run after injecting the running user');
+        System.assertEquals(resource.Id, queryResult.matchedResourceId, 'Null resource Id should inject RelatedRecordId');
+        System.assertEquals(
+            true,
+            hasAppointmentSubject(queryResult.appointments, 'Ready Nearby'),
+            'Ready Nearby should still match the running user'
+        );
+    }
+
+    /**
+     * @description Unknown resource Id skips matching and returns radius rows.
+     */
+    @IsTest
+    static void getMapAppointmentsUnknownResourceSkipsMatching() {
+        insertOtherTerritoryReadyNow('Other Territory');
+        Id missingId = Id.valueOf(
+            ServiceResource.SObjectType.getDescribe(SObjectDescribeOptions.DEFERRED)
+                .getKeyPrefix() + '000000000000'
+        );
+        FsSSMapLayersService.settingsOverride = mapQuerySettings(true, true);
+        Test.startTest();
+        FsSSMapLayersService.MapQueryResult queryResult = FsSSMapLayersService.getMapAppointments(
+            ORIGIN_LAT,
+            ORIGIN_LNG,
+            missingId
+        );
+        Test.stopTest();
+        System.assertEquals(false, queryResult.policyMatchingApplied, 'Unknown resource should skip matching');
+        System.assertEquals(null, queryResult.matchedResourceId, 'Unknown resource should not set matchedResourceId');
+        System.assertEquals(
+            true,
+            hasAppointmentSubject(queryResult.appointments, 'Ready Nearby'),
+            'Radius rows should still return when matching is skipped'
+        );
+        System.assertEquals(
+            true,
+            hasAppointmentSubject(queryResult.appointments, 'Other Territory'),
+            'Other-territory appointments should remain when matching is skipped'
+        );
+    }
+
+    /**
+     * @description Appointments in another working territory are omitted when matching is on.
+     */
+    @IsTest
+    static void getMapAppointmentsExcludesOtherTerritory() {
+        ServiceResource resource = [
+            SELECT Id
+            FROM ServiceResource
+            WHERE RelatedRecordId = :UserInfo.getUserId()
+            LIMIT 1
+        ];
+        insertOtherTerritoryReadyNow('Other Territory');
+        FsSSMapLayersService.settingsOverride = mapQuerySettings(true, true);
+        Test.startTest();
+        FsSSMapLayersService.MapQueryResult queryResult = FsSSMapLayersService.getMapAppointments(
+            ORIGIN_LAT,
+            ORIGIN_LNG,
+            resource.Id
+        );
+        Test.stopTest();
+        System.assertEquals(true, queryResult.policyMatchingApplied, 'Matching should run');
+        System.assertEquals(true, queryResult.skippedTerritoryCount >= 1, 'Other territory should increment skip count');
+        System.assertEquals(
+            true,
+            hasAppointmentSubject(queryResult.appointments, 'Ready Nearby'),
+            'Matching territory should remain'
+        );
+        System.assertEquals(
+            false,
+            hasAppointmentSubject(queryResult.appointments, 'Other Territory'),
+            'Other territory must be excluded'
+        );
+    }
+
+    /**
+     * @description Turning both rule flags off returns radius rows without matching.
+     */
+    @IsTest
+    static void getMapAppointmentsSkipsMatchingWhenFlagsOff() {
+        ServiceResource resource = [
+            SELECT Id
+            FROM ServiceResource
+            WHERE RelatedRecordId = :UserInfo.getUserId()
+            LIMIT 1
+        ];
+        insertOtherTerritoryReadyNow('Other Territory');
+        FsSSMapLayersService.settingsOverride = mapQuerySettings(false, false);
+        Test.startTest();
+        FsSSMapLayersService.MapQueryResult queryResult = FsSSMapLayersService.getMapAppointments(
+            ORIGIN_LAT,
+            ORIGIN_LNG,
+            resource.Id
+        );
+        Test.stopTest();
+        System.assertEquals(false, queryResult.policyMatchingApplied, 'Matching should be skipped when flags are off');
+        System.assertEquals(resource.Id, queryResult.matchedResourceId, 'Resolved resource should still be reported');
+        System.assertEquals(
+            true,
+            hasAppointmentSubject(queryResult.appointments, 'Other Territory'),
+            'Other territory should remain when flags are off'
+        );
+    }
+
+    /**
+     * @description Blank territory appointments fail closed when territory matching runs.
+     */
+    @IsTest
+    static void getMapAppointmentsExcludesBlankTerritory() {
+        ServiceResource resource = [
+            SELECT Id
+            FROM ServiceResource
+            WHERE RelatedRecordId = :UserInfo.getUserId()
+            LIMIT 1
+        ];
+        WorkOrder workOrder = [
+            SELECT Id
+            FROM WorkOrder
+            WHERE Subject = 'Self Scheduling Work'
+            LIMIT 1
+        ];
+        AppointmentSpec spec = new AppointmentSpec();
+        spec.parentId = workOrder.Id;
+        spec.subject = 'Blank Territory';
+        spec.latitude = ORIGIN_LAT;
+        spec.longitude = ORIGIN_LNG;
+        spec.isReadyNow = true;
+        spec.territoryId = null;
+        insert buildAppointment(spec);
+        FsSSMapLayersService.settingsOverride = mapQuerySettings(true, true);
+        Test.startTest();
+        FsSSMapLayersService.MapQueryResult queryResult = FsSSMapLayersService.getMapAppointments(
+            ORIGIN_LAT,
+            ORIGIN_LNG,
+            resource.Id
+        );
+        Test.stopTest();
+        System.assertEquals(
+            false,
+            hasAppointmentSubject(queryResult.appointments, 'Blank Territory'),
+            'Blank territory must be excluded'
+        );
+        System.assertEquals(true, queryResult.skippedTerritoryCount >= 1, 'Blank territory should increment skip count');
+    }
+
+    /**
+     * @description Empty related-record set returns no skill requirements.
+     */
+    @IsTest
+    static void loadSkillRequirementsEmptySetReturnsEmpty() {
+        Test.startTest();
+        Map<Id, List<SkillRequirement>> empty = FsSSPolicyMatcher.loadSkillRequirements(
+            new Set<Id>()
+        );
+        Map<Id, List<SkillRequirement>> nullIds = FsSSPolicyMatcher.loadSkillRequirements(
+            null
+        );
+        Test.stopTest();
+        System.assertEquals(0, empty.size(), 'Empty set should return no requirements');
+        System.assertEquals(0, nullIds.size(), 'Null set should return no requirements');
+    }
+
+    /**
+     * @description Skill requirement loader queries by RelatedRecordId without inserting Skill.
+     */
+    @IsTest
+    static void loadSkillRequirementsQueriesByRelatedRecord() {
+        WorkOrder workOrder = [
+            SELECT Id
+            FROM WorkOrder
+            WHERE Subject = 'Self Scheduling Work'
+            LIMIT 1
+        ];
+        List<SkillRequirement> existing = [
+            SELECT Id, RelatedRecordId
+            FROM SkillRequirement
+            WHERE RelatedRecordId != null
+            LIMIT 1
+        ];
+        Test.startTest();
+        Map<Id, List<SkillRequirement>> byWorkOrder = FsSSPolicyMatcher.loadSkillRequirements(
+            new Set<Id>{ workOrder.Id }
+        );
+        Map<Id, List<SkillRequirement>> byExisting = existing.isEmpty()
+            ? new Map<Id, List<SkillRequirement>>()
+            : FsSSPolicyMatcher.loadSkillRequirements(
+                new Set<Id>{ existing[0].RelatedRecordId }
+            );
+        Test.stopTest();
+        System.assertEquals(
+            false,
+            byWorkOrder.containsKey(workOrder.Id),
+            'Setup Work Order should have no skill requirements'
+        );
+        if (!existing.isEmpty()) {
+            System.assertEquals(
+                true,
+                byExisting.containsKey(existing[0].RelatedRecordId),
+                'Existing requirements should be grouped by parent Id'
+            );
+            System.assertEquals(
+                true,
+                byExisting.get(existing[0].RelatedRecordId).size() >= 1,
+                'At least one requirement should load for the parent'
+            );
+        }
     }
 
     /**
@@ -257,7 +482,7 @@ private class FsSSMapLayersServiceTest {
     static void executeFilterQueryMatchesReadyNowFlag() {
         Map<String, String> currentFieldFilter = new Map<String, String>();
         currentFieldFilter.put('type', 'Boolean');
-        currentFieldFilter.put('value', 'Is_Ready_Now__c');
+        currentFieldFilter.put('value', 'FS_Ready_Now__c');
         currentFieldFilter.put('input', 'true');
         Test.startTest();
         List<sObject> result = FsSSMapLayersService.executeFilterQuery(
@@ -583,12 +808,12 @@ private class FsSSMapLayersServiceTest {
     }
 
     /**
-     * @description Claim rejects an appointment that already has an assigned resource.
+     * @description Claim rejects an appointment assigned to a different resource.
      */
     @IsTest
     static void selfScheduleRejectsAlreadyAssigned() {
         ServiceAppointment appointment = [
-            SELECT Id, SchedStartTime, SchedEndTime
+            SELECT Id
             FROM ServiceAppointment
             WHERE Subject = 'Ready Nearby'
             LIMIT 1
@@ -599,7 +824,8 @@ private class FsSSMapLayersServiceTest {
             WHERE RelatedRecordId = :UserInfo.getUserId()
             LIMIT 1
         ];
-        Datetime startTime = System.now();
+        Id otherResourceId = otherResourceId(resource.Id);
+        Datetime startTime = System.now().addHours(-2);
         update new ServiceAppointment(
             Id = appointment.Id,
             SchedStartTime = startTime,
@@ -607,7 +833,7 @@ private class FsSSMapLayersServiceTest {
         );
         insert new AssignedResource(
             ServiceAppointmentId = appointment.Id,
-            ServiceResourceId = resource.Id
+            ServiceResourceId = otherResourceId
         );
         Boolean threw = false;
         Test.startTest();
@@ -615,9 +841,75 @@ private class FsSSMapLayersServiceTest {
             FsSSMapLayersService.selfSchedule(appointment.Id, resource.Id);
         } catch (Exception e) {
             threw = true;
+            System.assertEquals(
+                'This appointment is already assigned.',
+                e.getMessage(),
+                'Other-resource assignment should keep the existing error'
+            );
         }
         Test.stopTest();
-        System.assertEquals(true, threw, 'Already assigned appointments must not be claimed');
+        System.assertEquals(true, threw, 'Appointments assigned to another resource must not be claimed');
+    }
+
+    /**
+     * @description Claim updates times and dispatches when this resource is already assigned.
+     */
+    @IsTest
+    static void selfScheduleReschedulesOwnAssignment() {
+        ServiceAppointment appointment = [
+            SELECT Id
+            FROM ServiceAppointment
+            WHERE Subject = 'Ready Nearby'
+            LIMIT 1
+        ];
+        ServiceResource resource = [
+            SELECT Id
+            FROM ServiceResource
+            WHERE RelatedRecordId = :UserInfo.getUserId()
+            LIMIT 1
+        ];
+        Datetime oldStart = System.now().addHours(-3);
+        update new ServiceAppointment(
+            Id = appointment.Id,
+            SchedStartTime = oldStart,
+            SchedEndTime = oldStart.addMinutes(45)
+        );
+        insert new AssignedResource(
+            ServiceAppointmentId = appointment.Id,
+            ServiceResourceId = resource.Id
+        );
+        FS_Self_Scheduling_Config__mdt record = new FS_Self_Scheduling_Config__mdt(
+            Bypass_Fsl_Schedule_Here__c = false,
+            Scheduling_Policy_Name__c = 'Self Scheduling',
+            Target_Status__c = 'Dispatched',
+            Status_Values__c = 'None,Scheduled'
+        );
+        FsSSSelfScheduler.settingsOverride = FsSSConfigParser.fromRecord(record);
+        Test.startTest();
+        Id claimedId = FsSSMapLayersService.selfSchedule(appointment.Id, resource.Id);
+        Test.stopTest();
+        ServiceAppointment claimed = [
+            SELECT Status, SchedStartTime, SchedEndTime
+            FROM ServiceAppointment
+            WHERE Id = :claimedId
+        ];
+        System.assertEquals('Dispatched', claimed.Status, 'Own assignment should still dispatch');
+        System.assertEquals(
+            true,
+            claimed.SchedStartTime > oldStart,
+            'Scheduled start should move to now'
+        );
+        System.assertEquals(
+            true,
+            claimed.SchedEndTime > claimed.SchedStartTime,
+            'Scheduled end should stay after start'
+        );
+        Integer assigned = [
+            SELECT COUNT()
+            FROM AssignedResource
+            WHERE ServiceAppointmentId = :claimedId
+        ];
+        System.assertEquals(1, assigned, 'Existing Assigned Resource should be reused');
     }
 
     /**
@@ -1023,8 +1315,86 @@ private class FsSSMapLayersServiceTest {
             Latitude = spec.latitude,
             Longitude = spec.longitude,
             ServiceTerritoryId = spec.territoryId,
-            Is_Ready_Now__c = spec.isReadyNow
+            FS_Ready_Now__c = spec.isReadyNow
         );
+    }
+
+    /**
+     * @description Map query settings with a missing policy so both rule families run when flags are on.
+     * @param evaluateTerritory Territory matching flag.
+     * @param evaluateSkills Skill matching flag.
+     * @return Parsed settings for FsSSMapLayersService.settingsOverride.
+     */
+    private static FsSSConfigParser.Settings mapQuerySettings(
+        Boolean evaluateTerritory,
+        Boolean evaluateSkills
+    ) {
+        return FsSSConfigParser.fromRecord(
+            new FS_Self_Scheduling_Config__mdt(
+                Search_Radius__c = 10,
+                Distance_Unit__c = 'km',
+                Status_Values__c = 'None,Scheduled',
+                Boolean_Filters__c = 'FS_Ready_Now__c=true',
+                Scheduling_Policy_Name__c = 'FsSS_Missing_Policy',
+                Max_Results__c = 200,
+                Evaluate_Territory_Rules__c = evaluateTerritory,
+                Evaluate_Skill_Rules__c = evaluateSkills
+            )
+        );
+    }
+
+    /**
+     * @description True when the map payload includes the given subject.
+     * @param rows Map appointment wrappers.
+     * @param subject Appointment subject.
+     * @return True when a matching wrapper is present.
+     */
+    private static Boolean hasAppointmentSubject(
+        List<FsSSMapLayersService.MapAppointment> rows,
+        String subject
+    ) {
+        for (FsSSMapLayersService.MapAppointment row : rows) {
+            if (row.firstDetailFieldValue == subject) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @description Inserts a Ready Now appointment in a territory the test resource does not belong to.
+     * @param subject Appointment subject.
+     * @return Inserted appointment.
+     */
+    private static ServiceAppointment insertOtherTerritoryReadyNow(String subject) {
+        OperatingHours hours = [
+            SELECT Id
+            FROM OperatingHours
+            WHERE Name = 'Self Scheduling Hours'
+            LIMIT 1
+        ];
+        ServiceTerritory otherTerritory = new ServiceTerritory(
+            Name = subject + ' Territory',
+            OperatingHoursId = hours.Id,
+            IsActive = true
+        );
+        insert otherTerritory;
+        WorkOrder workOrder = [
+            SELECT Id
+            FROM WorkOrder
+            WHERE Subject = 'Self Scheduling Work'
+            LIMIT 1
+        ];
+        AppointmentSpec spec = new AppointmentSpec();
+        spec.parentId = workOrder.Id;
+        spec.subject = subject;
+        spec.latitude = ORIGIN_LAT;
+        spec.longitude = ORIGIN_LNG;
+        spec.isReadyNow = true;
+        spec.territoryId = otherTerritory.Id;
+        ServiceAppointment appointment = buildAppointment(spec);
+        insert appointment;
+        return appointment;
     }
 
     /**
@@ -1045,6 +1415,91 @@ private class FsSSMapLayersServiceTest {
             RelatedRecordId = UserInfo.getUserId(),
             IsActive = true,
             ResourceType = 'T'
+        );
+    }
+
+    /**
+     * @description Resolves a Service Resource that is not the claiming resource
+     *              and gives it membership in the test territory.
+     * @param currentResourceId Resource Id to exclude.
+     * @return Another Service Resource Id.
+     */
+    private static Id otherResourceId(Id currentResourceId) {
+        Id otherId = findOrCreateOtherResource(currentResourceId);
+        addSecondaryTerritoryMember(otherId, currentResourceId);
+        return otherId;
+    }
+
+    /**
+     * @description Finds or inserts a Service Resource for a user other than the runner.
+     * @param currentResourceId Resource Id to exclude.
+     * @return Another Service Resource Id.
+     */
+    private static Id findOrCreateOtherResource(Id currentResourceId) {
+        List<User> otherUsers = [
+            SELECT Id
+            FROM User
+            WHERE Id != :UserInfo.getUserId()
+            AND IsActive = true
+            LIMIT 1
+        ];
+        System.assertEquals(false, otherUsers.isEmpty(), 'Need another user for a second Service Resource');
+        List<ServiceResource> forOtherUser = [
+            SELECT Id
+            FROM ServiceResource
+            WHERE RelatedRecordId = :otherUsers[0].Id
+            LIMIT 1
+        ];
+        if (!forOtherUser.isEmpty() && forOtherUser[0].Id != currentResourceId) {
+            return forOtherUser[0].Id;
+        }
+        ServiceResource other = new ServiceResource(
+            Name = 'Other Self Scheduling Resource',
+            RelatedRecordId = otherUsers[0].Id,
+            IsActive = true,
+            ResourceType = 'T'
+        );
+        insert other;
+        return other.Id;
+    }
+
+    /**
+     * @description Adds secondary territory membership so Assigned Resource insert can succeed.
+     * @param otherResourceId Resource that will own the assignment.
+     * @param currentResourceId Resource whose test territory is copied.
+     */
+    private static void addSecondaryTerritoryMember(Id otherResourceId, Id currentResourceId) {
+        List<ServiceTerritoryMember> currentMembers = [
+            SELECT ServiceTerritoryId
+            FROM ServiceTerritoryMember
+            WHERE ServiceResourceId = :currentResourceId
+            LIMIT 1
+        ];
+        if (currentMembers.isEmpty()) {
+            return;
+        }
+        Id territoryId = currentMembers[0].ServiceTerritoryId;
+        Integer existing = [
+            SELECT COUNT()
+            FROM ServiceTerritoryMember
+            WHERE ServiceResourceId = :otherResourceId
+            AND ServiceTerritoryId = :territoryId
+        ];
+        if (existing > 0) {
+            return;
+        }
+        Integer primaryCount = [
+            SELECT COUNT()
+            FROM ServiceTerritoryMember
+            WHERE ServiceResourceId = :otherResourceId
+            AND TerritoryType = 'P'
+        ];
+        String memberType = primaryCount > 0 ? 'S' : 'P';
+        insert new ServiceTerritoryMember(
+            ServiceResourceId = otherResourceId,
+            ServiceTerritoryId = territoryId,
+            EffectiveStartDate = System.now().addDays(-1),
+            TerritoryType = memberType
         );
     }
 }

@@ -34,8 +34,8 @@
         <members>FS_Self_Scheduling_Config__mdt.Search_Radius__c</members>
         <members>FS_Self_Scheduling_Config__mdt.Status_Values__c</members>
         <members>FS_Self_Scheduling_Config__mdt.Target_Status__c</members>
-        <members>ServiceAppointment.Is_Ready_Now__c</members>
-        <members>WorkOrderLineItem.Is_Ready_Now__c</members>
+        <members>ServiceAppointment.FS_Ready_Now__c</members>
+        <members>WorkOrderLineItem.FS_Ready_Now__c</members>
         <name>CustomField</name>
     </types>
     <types>
@@ -80,6 +80,10 @@
     <types>
         <members>ServiceAppointment</members>
         <name>SharingRules</name>
+    </types>
+    <types>
+        <members>FS_FieldResources_Team_Membership</members>
+        <name>UserAccessPolicy</name>
     </types>
     <version>66.0</version>
 </Package>

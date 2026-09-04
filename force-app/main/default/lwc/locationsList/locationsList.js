@@ -1,11 +1,11 @@
 import { LightningElement, api } from "lwc";
 
 const IOS_MARGIN = "34px";
-const COLLAPSE_HEIGHT_SETTLE_MS = 800;
-const LARGE_EXPAND_OFFSET = "20%";
+const COLLAPSED_OFFSET = "85%";
+const EXPAND_OFFSET = "20%";
+const DRAG_THRESHOLD_PX = 8;
 
 export default class LocationsList extends LightningElement {
-  @api formFactor;
   @api filteredMarkers;
   @api currentObject;
   @api setCurrentMarker;
@@ -129,10 +129,6 @@ export default class LocationsList extends LightningElement {
     return !!this.currentObject?.label;
   }
 
-  get isLargeForm() {
-    return this.formFactor === "Large";
-  }
-
   get expandedAria() {
     return this.expanded ? "true" : "false";
   }
@@ -219,38 +215,32 @@ export default class LocationsList extends LightningElement {
     if (!this.mainTemplate || !this.listElement) {
       return;
     }
-    const top = this.mainTemplate.style.top;
     this.expanded = true;
-    if (this.isLargeForm) {
-      this.mainTemplate.style.transform = `translateY(calc(${LARGE_EXPAND_OFFSET} - ${top}))`;
-      // eslint-disable-next-line @lwc/lwc/no-async-operation
-      this.listHeightTimer = window.setTimeout(() => {
-        this.setListHeight();
-      }, 50);
-      return;
-    }
-    if (this.listElement.clientHeight > (this.containerHeight * 85) / 100) {
-      this.mainTemplate.style.transform = `translateY(calc(20% - ${top}))`;
-      // eslint-disable-next-line @lwc/lwc/no-async-operation
-      this.listHeightTimer = window.setTimeout(() => {
-        this.setListHeight();
-      }, COLLAPSE_HEIGHT_SETTLE_MS);
-    } else {
-      this.mainTemplate.style.transform = `translateY(calc((90% - ${this.listElement.clientHeight}px) - ${top}))`;
-    }
+    this.applySheetTranslate(EXPAND_OFFSET);
+    // eslint-disable-next-line @lwc/lwc/no-async-operation
+    this.listHeightTimer = window.setTimeout(() => {
+      this.setListHeight();
+    }, 50);
   }
 
   closeLocationsList() {
     if (!this.mainTemplate) {
       return;
     }
-    const top = this.mainTemplate.style.top;
     this.expanded = false;
-    this.mainTemplate.style.transform = `translateY(calc(85% - ${top}))`;
+    this.applySheetTranslate(COLLAPSED_OFFSET);
     this.showPopover = false;
     if (this.listElement) {
       this.listElement.style.height = "auto";
     }
+  }
+
+  applySheetTranslate(offset) {
+    if (!this.mainTemplate) {
+      return;
+    }
+    this.mainTemplate.style.top = "";
+    this.mainTemplate.style.transform = `translateY(${offset})`;
   }
 
   setListHeight() {
@@ -264,35 +254,58 @@ export default class LocationsList extends LightningElement {
   }
 
   detectDrag = () => {
-    let verticalDelta = 0;
     let startY = 0;
+    let totalDelta = 0;
+    let dragging = false;
 
     const dragMove = (e) => {
+      if (!e.touches || !e.touches[0] || !this.mainTemplate) {
+        return;
+      }
+      totalDelta = startY - e.touches[0].clientY;
+      if (!dragging && Math.abs(totalDelta) < DRAG_THRESHOLD_PX) {
+        return;
+      }
+      dragging = true;
       e.preventDefault();
-      verticalDelta = startY - e.touches[0].clientY;
-      startY = e.touches[0].clientY;
-      this.mainTemplate.style.top = `${
-        this.mainTemplate.offsetTop - verticalDelta
-      }px`;
+      const basePercent = this.expanded
+        ? parseFloat(EXPAND_OFFSET)
+        : parseFloat(COLLAPSED_OFFSET);
+      const height = this.containerHeight || 1;
+      const deltaPercent = (totalDelta / height) * 100;
+      this.mainTemplate.style.transform = `translateY(${
+        basePercent - deltaPercent
+      }%)`;
     };
 
     const dragEnd = () => {
-      if (verticalDelta > 0) {
+      this.headerElement.removeEventListener("touchend", dragEnd);
+      this.headerElement.removeEventListener("touchmove", dragMove);
+      if (!dragging) {
+        return;
+      }
+      if (totalDelta > 0) {
         this.openLocationsList();
       } else {
         this.closeLocationsList();
       }
-      this.headerElement.removeEventListener("touchend", dragEnd);
-      this.headerElement.removeEventListener("touchmove", dragMove);
     };
 
     this.dragTouchStart = (e) => {
-      this.listElement.style.height = "auto";
+      if (!e.touches || !e.touches[0]) {
+        return;
+      }
+      if (this.listElement) {
+        this.listElement.style.height = "auto";
+      }
       this.showPopover = false;
-      e.preventDefault();
       startY = e.touches[0].clientY;
+      totalDelta = 0;
+      dragging = false;
       this.headerElement.addEventListener("touchend", dragEnd);
-      this.headerElement.addEventListener("touchmove", dragMove);
+      this.headerElement.addEventListener("touchmove", dragMove, {
+        passive: false
+      });
     };
 
     this.headerElement.addEventListener("touchstart", this.dragTouchStart);

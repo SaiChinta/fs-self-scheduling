@@ -5,6 +5,14 @@
 public with sharing class FsSSMapLayersService {
     private static final String SERVICE_APPOINTMENT = 'ServiceAppointment';
     private static final String UNIT_MILES = 'mi';
+    private static final String SKIP_TERRITORY = 'Territory mismatch';
+    private static final String SKIP_SKILL = 'Skill mismatch';
+
+    /**
+     * @description Test-only replacement for FsSSConfigParser.loadDefault().
+     */
+    @TestVisible
+    private static FsSSConfigParser.Settings settingsOverride;
 
     /**
      * @description Marker payload returned to the map LWC.
@@ -115,9 +123,30 @@ public with sharing class FsSSMapLayersService {
         /** @description Boolean AND fragment actually appended */
         @AuraEnabled
         public String booleanClause;
-        /** @description Number of rows returned */
+        /** @description Number of rows returned after policy matching */
         @AuraEnabled
         public Integer rowCount;
+        /** @description Service Resource Id used for matching, or null */
+        @AuraEnabled
+        public Id matchedResourceId;
+        /** @description True when territory or skill matching ran */
+        @AuraEnabled
+        public Boolean policyMatchingApplied;
+        /** @description Radius query size before policy matching */
+        @AuraEnabled
+        public Integer radiusRowCount;
+        /** @description Appointments dropped for territory mismatch */
+        @AuraEnabled
+        public Integer skippedTerritoryCount;
+        /** @description Appointments dropped for skill mismatch */
+        @AuraEnabled
+        public Integer skippedSkillCount;
+        /** @description Work rule types loaded for the resolved resource */
+        @AuraEnabled
+        public List<String> policyRuleTypes;
+        /** @description Policy work rule types this package does not evaluate */
+        @AuraEnabled
+        public List<String> unimplementedRuleTypes;
     }
 
     /**
@@ -251,12 +280,14 @@ public with sharing class FsSSMapLayersService {
     }
 
     /**
-     * @description Returns appointments inside the configured radius of an origin.
-     *              Policy / skill matching is intentionally not applied here; that comes later.
+     * @description Returns appointments inside the configured radius of an origin
+     *              that match the resource's territory and skill rules when those
+     *              CMDT flags are on. When resourceId is null, matching uses the
+     *              Service Resource whose RelatedRecordId is the running user.
      * @param latitude Origin latitude.
      * @param longitude Origin longitude.
-     * @param resourceId Reserved for later policy matching; unused in the radius query.
-     * @return Appointments plus the SOQL and bind values used to load them.
+     * @param resourceId Optional Service Resource Id; null injects the running user.
+     * @return Appointments plus the SOQL, bind values, and matching diagnostics.
      */
     @AuraEnabled
     public static MapQueryResult getMapAppointments(
@@ -265,9 +296,7 @@ public with sharing class FsSSMapLayersService {
         Id resourceId
     ) {
         try {
-            // resourceId is accepted so the LWC contract stays stable while policy
-            // matching is reintroduced later.
-            return queryMapAppointments(latitude, longitude);
+            return queryMapAppointments(latitude, longitude, resourceId);
         } catch (Exception e) {
             throw auraError(e.getMessage());
         }
@@ -344,7 +373,7 @@ public with sharing class FsSSMapLayersService {
                 )
             };
             String soql =
-                'SELECT Id FROM ServiceAppointment WHERE Is_Ready_Now__c = true AND ' +
+                'SELECT Id FROM ServiceAppointment WHERE FS_Ready_Now__c = true AND ' +
                 String.escapeSingleQuotes(fieldName) +
                 ' = :filterValue';
             return Database.queryWithBinds(soql, binds, AccessLevel.USER_MODE);
@@ -373,31 +402,193 @@ public with sharing class FsSSMapLayersService {
     }
 
     /**
-     * @description Runs the radius query and captures SOQL plus bind values for debug.
+     * @description Runs the radius query, then applies territory and skill matching.
      * @param latitude Origin latitude.
      * @param longitude Origin longitude.
+     * @param resourceId Optional Service Resource Id; null injects the running user.
      * @return Query result wrapper; empty appointments when origin is null.
      */
     private static MapQueryResult queryMapAppointments(
         Decimal latitude,
-        Decimal longitude
+        Decimal longitude,
+        Id resourceId
     ) {
         MapQueryResult result = newEmptyQueryResult();
         if (latitude == null || longitude == null) {
             return result;
         }
-        FsSSConfigParser.Settings settings = FsSSConfigParser.loadDefault();
+        FsSSConfigParser.Settings settings = settingsOverride != null
+            ? settingsOverride
+            : FsSSConfigParser.loadDefault();
         populateQueryMetadata(result, latitude, longitude, settings);
         List<ServiceAppointment> rows = (List<ServiceAppointment>) Database.queryWithBinds(
             result.soql,
             toBindMap(result),
             AccessLevel.USER_MODE
         );
+        List<ServiceResource> resources = queryResource(resourceId);
+        Id resolvedResourceId = resources.isEmpty() ? null : resources[0].Id;
+        applyPolicyMatching(rows, resolvedResourceId, settings, result);
+        return result;
+    }
+
+    /**
+     * @description Filters radius rows through territory and skill matching.
+     * @param rows Radius query results.
+     * @param resolvedResourceId Service Resource used for matching, or null.
+     * @param settings Parsed CMDT.
+     * @param result Query result being populated.
+     */
+    private static void applyPolicyMatching(
+        List<ServiceAppointment> rows,
+        Id resolvedResourceId,
+        FsSSConfigParser.Settings settings,
+        MapQueryResult result
+    ) {
+        result.radiusRowCount = rows.size();
+        result.matchedResourceId = resolvedResourceId;
+        if (!shouldApplyMatching(resolvedResourceId, settings)) {
+            addAppointments(rows, settings, result);
+            result.policyMatchingApplied = false;
+            result.rowCount = result.appointments.size();
+            return;
+        }
+        result.policyMatchingApplied = true;
+        FsSSPolicyMatcher.ResourceContext context = buildMatcherContext(
+            resolvedResourceId,
+            settings
+        );
+        result.policyRuleTypes = new List<String>(context.policyRuleTypes);
+        Map<Id, List<SkillRequirement>> skillRequirements =
+            settings.evaluateSkillRules == true
+                ? FsSSPolicyMatcher.loadSkillRequirements(parentIdsFrom(rows))
+                : new Map<Id, List<SkillRequirement>>();
+        Set<String> unimplemented = new Set<String>();
+        for (ServiceAppointment row : rows) {
+            addMatchedAppointment(
+                row,
+                settings,
+                context,
+                skillRequirements,
+                unimplemented,
+                result
+            );
+        }
+        result.unimplementedRuleTypes = new List<String>(unimplemented);
+        result.rowCount = result.appointments.size();
+    }
+
+    /**
+     * @description True when a resource is resolved and at least one rule flag is on.
+     * @param resolvedResourceId Resolved Service Resource Id.
+     * @param settings Parsed CMDT.
+     * @return True when matching should run.
+     */
+    private static Boolean shouldApplyMatching(
+        Id resolvedResourceId,
+        FsSSConfigParser.Settings settings
+    ) {
+        if (resolvedResourceId == null) {
+            return false;
+        }
+        return settings.evaluateTerritoryRules == true ||
+            settings.evaluateSkillRules == true;
+    }
+
+    /**
+     * @description Builds matcher context for the resolved resource.
+     * @param resolvedResourceId Service Resource Id.
+     * @param settings Parsed CMDT.
+     * @return Matcher resource context.
+     */
+    private static FsSSPolicyMatcher.ResourceContext buildMatcherContext(
+        Id resolvedResourceId,
+        FsSSConfigParser.Settings settings
+    ) {
+        FsSSPolicyMatcher.ContextRequest request = new FsSSPolicyMatcher.ContextRequest();
+        request.resourceId = resolvedResourceId;
+        request.policyName = settings.schedulingPolicyName;
+        request.evaluateTerritoryRules = settings.evaluateTerritoryRules;
+        request.evaluateSkillRules = settings.evaluateSkillRules;
+        return FsSSPolicyMatcher.buildContext(request);
+    }
+
+    /**
+     * @description Keeps a matching appointment or increments skip counters.
+     * @param row Candidate appointment.
+     * @param settings Parsed CMDT.
+     * @param context Matcher resource context.
+     * @param skillRequirements Requirements keyed by parent Id.
+     * @param unimplemented Collector for unimplemented work rule types.
+     * @param result Query result being populated.
+     */
+    private static void addMatchedAppointment(
+        ServiceAppointment row,
+        FsSSConfigParser.Settings settings,
+        FsSSPolicyMatcher.ResourceContext context,
+        Map<Id, List<SkillRequirement>> skillRequirements,
+        Set<String> unimplemented,
+        MapQueryResult result
+    ) {
+        FsSSPolicyMatcher.MatchResult matchResult = FsSSPolicyMatcher.evaluate(
+            row,
+            skillRequirements,
+            context
+        );
+        if (matchResult.isMatch == true) {
+            result.appointments.add(toMapAppointment(row, settings));
+            if (matchResult.skippedRuleTypes != null) {
+                unimplemented.addAll(matchResult.skippedRuleTypes);
+            }
+            return;
+        }
+        incrementSkipCount(result, matchResult.skipReason);
+    }
+
+    /**
+     * @description Increments skip counters for a matcher skip reason.
+     * @param result Query result being populated.
+     * @param skipReason Matcher skip reason.
+     */
+    private static void incrementSkipCount(MapQueryResult result, String skipReason) {
+        if (SKIP_TERRITORY.equals(skipReason)) {
+            result.skippedTerritoryCount++;
+            return;
+        }
+        if (SKIP_SKILL.equals(skipReason)) {
+            result.skippedSkillCount++;
+        }
+    }
+
+    /**
+     * @description Collects parent record Ids from radius rows.
+     * @param rows Radius query results.
+     * @return Parent Work Order or Work Order Line Item Ids.
+     */
+    private static Set<Id> parentIdsFrom(List<ServiceAppointment> rows) {
+        Set<Id> parentIds = new Set<Id>();
+        for (ServiceAppointment row : rows) {
+            if (row.ParentRecordId != null) {
+                parentIds.add(row.ParentRecordId);
+            }
+        }
+        return parentIds;
+    }
+
+    /**
+     * @description Converts every radius row without policy matching.
+     * @param rows Radius query results.
+     * @param settings Parsed CMDT.
+     * @param result Query result being populated.
+     */
+    private static void addAppointments(
+        List<ServiceAppointment> rows,
+        FsSSConfigParser.Settings settings,
+        MapQueryResult result
+    ) {
         for (ServiceAppointment row : rows) {
             result.appointments.add(toMapAppointment(row, settings));
         }
-        result.rowCount = result.appointments.size();
-        return result;
     }
 
     /**
@@ -412,6 +603,12 @@ public with sharing class FsSSMapLayersService {
         result.soqlForDisplay = '';
         result.booleanClause = '';
         result.rowCount = 0;
+        result.policyMatchingApplied = false;
+        result.radiusRowCount = 0;
+        result.skippedTerritoryCount = 0;
+        result.skippedSkillCount = 0;
+        result.policyRuleTypes = new List<String>();
+        result.unimplementedRuleTypes = new List<String>();
         return result;
     }
 
@@ -506,7 +703,7 @@ public with sharing class FsSSMapLayersService {
             'longitude',
             'serviceterritoryid',
             'parentrecordid',
-            'is_ready_now__c'
+            'fs_ready_now__c'
         };
         List<String> extraFields = new List<String>();
         for (String path : FsSSCardFieldHelper.selectFields(fields)) {
@@ -535,7 +732,7 @@ public with sharing class FsSSMapLayersService {
         String extraSelect = extraFields.isEmpty() ? '' : ', ' + String.join(extraFields, ', ');
         String soql =
             'SELECT Id, AppointmentNumber, Subject, Status, Duration, DurationType, ' +
-            'DurationInMinutes, Latitude, Longitude, ServiceTerritoryId, ParentRecordId, Is_Ready_Now__c' +
+            'DurationInMinutes, Latitude, Longitude, ServiceTerritoryId, ParentRecordId, FS_Ready_Now__c' +
             extraSelect +
             ' FROM ServiceAppointment WHERE Latitude != null AND Longitude != null ' +
             'AND DISTANCE(Address, GEOLOCATION(:latitude, :longitude), ' +
@@ -576,6 +773,7 @@ public with sharing class FsSSMapLayersService {
     /**
      * @description Maps an appointment to an LWC wrapper.
      * @param appointment Candidate appointment.
+     * @param settings Parsed CMDT used for card fields.
      * @return Map appointment DTO.
      */
     private static MapAppointment toMapAppointment(

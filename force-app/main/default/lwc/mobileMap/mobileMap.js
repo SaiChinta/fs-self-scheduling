@@ -90,7 +90,7 @@ export default class MobileMaps extends LightningElement {
   handleLocatorClick() {
     this.zoom = AUCKLAND_ZOOM;
     this.setCardState(false);
-    if (this.formFactor === "Large") {
+    if (this.isDesktopForm) {
       this.located = false;
       this.useAucklandCenter = true;
       return;
@@ -153,18 +153,23 @@ export default class MobileMaps extends LightningElement {
 
   // Getters & Helpers
 
+  get isDesktopForm() {
+    return this.formFactor === "Large" || this.formFactor === "Medium";
+  }
+
   get containerClass() {
-    return `main-container form-${this.formFactor || "Large"}`;
+    const layout = this.isDesktopForm ? "Large" : "Small";
+    return `main-container form-${layout}`;
   }
 
   get showDesktopMapControls() {
-    return this.formFactor === "Large";
+    return this.isDesktopForm;
   }
 
   get mapOptions() {
     return {
       disableDefaultUI: true,
-      zoomControl: this.formFactor === "Large"
+      zoomControl: this.isDesktopForm
     };
   }
 
@@ -253,7 +258,8 @@ export default class MobileMaps extends LightningElement {
   }
 
   get cardClass() {
-    return `cards form-${this.formFactor || "Large"}`;
+    const layout = this.isDesktopForm ? "Large" : "Small";
+    return `cards form-${layout}`;
   }
 
   get cardFieldRows() {
