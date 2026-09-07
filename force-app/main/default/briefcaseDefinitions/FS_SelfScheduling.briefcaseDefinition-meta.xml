@@ -63,6 +63,13 @@
         <queryScope>Everything</queryScope>
         <targetEntity>FS_Self_Scheduling_Config__mdt</targetEntity>
     </briefcaseRules>
+    <briefcaseRules>
+        <isAscendingOrder>false</isAscendingOrder>
+        <orderBy>SystemModstamp</orderBy>
+        <queryScope>Everything</queryScope>
+        <recordLimit>50</recordLimit>
+        <targetEntity>ServiceTerritory</targetEntity>
+    </briefcaseRules>
     <description>High volume briefcase that primes Ready Now work order line items and skill requirements, Ready Now service appointments, and the running user service resource with territory memberships and skills.</description>
     <isActive>true</isActive>
     <masterLabel>FS Self Scheduling</masterLabel>
