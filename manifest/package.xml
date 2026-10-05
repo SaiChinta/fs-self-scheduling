@@ -80,6 +80,7 @@
     </types>
     <types>
         <members>ServiceAppointment</members>
+        <members>WorkOrder</members>
         <name>SharingRules</name>
     </types>
     <types>

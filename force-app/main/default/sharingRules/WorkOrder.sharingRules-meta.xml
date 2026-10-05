@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SharingRules xmlns="http://soap.sforce.com/2006/04/metadata">
+    <sharingCriteriaRules>
+        <fullName>Ready_Now_Work_Orders</fullName>
+        <accessLevel>Read</accessLevel>
+        <label>Ready Now Work Orders to Mobile Users</label>
+        <sharedTo>
+            <group>FS_FieldResources_Team</group>
+        </sharedTo>
+        <criteriaItems>
+            <field>FS_Ready_Now__c</field>
+            <operation>equals</operation>
+            <value>True</value>
+        </criteriaItems>
+        <includeRecordsOwnedByAll>true</includeRecordsOwnedByAll>
+    </sharingCriteriaRules>
+</SharingRules>
