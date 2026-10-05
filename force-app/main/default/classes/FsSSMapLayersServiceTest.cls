@@ -808,10 +808,10 @@ private class FsSSMapLayersServiceTest {
     }
 
     /**
-     * @description Claim rejects an appointment assigned to a different resource.
+     * @description Bypass-on claim replaces another resource and dispatches.
      */
     @IsTest
-    static void selfScheduleRejectsAlreadyAssigned() {
+    static void selfScheduleReassignsOtherResource() {
         ServiceAppointment appointment = [
             SELECT Id
             FROM ServiceAppointment
@@ -824,7 +824,7 @@ private class FsSSMapLayersServiceTest {
             WHERE RelatedRecordId = :UserInfo.getUserId()
             LIMIT 1
         ];
-        Id otherResourceId = otherResourceId(resource.Id);
+        Id otherId = otherResourceId(resource.Id);
         Datetime startTime = System.now().addHours(-2);
         update new ServiceAppointment(
             Id = appointment.Id,
@@ -833,22 +833,34 @@ private class FsSSMapLayersServiceTest {
         );
         insert new AssignedResource(
             ServiceAppointmentId = appointment.Id,
-            ServiceResourceId = otherResourceId
+            ServiceResourceId = otherId
         );
-        Boolean threw = false;
+        useClaimSettings(true);
         Test.startTest();
-        try {
-            FsSSMapLayersService.selfSchedule(appointment.Id, resource.Id);
-        } catch (Exception e) {
-            threw = true;
-            System.assertEquals(
-                'This appointment is already assigned.',
-                e.getMessage(),
-                'Other-resource assignment should keep the existing error'
-            );
-        }
+        Id claimedId = FsSSMapLayersService.selfSchedule(appointment.Id, resource.Id);
         Test.stopTest();
-        System.assertEquals(true, threw, 'Appointments assigned to another resource must not be claimed');
+        ServiceAppointment claimed = [
+            SELECT Status, SchedStartTime
+            FROM ServiceAppointment
+            WHERE Id = :claimedId
+        ];
+        System.assertEquals('Dispatched', claimed.Status, 'Reassigned appointment should be Dispatched');
+        System.assertEquals(
+            true,
+            claimed.SchedStartTime > startTime,
+            'Scheduled start should move to now'
+        );
+        List<AssignedResource> rows = [
+            SELECT ServiceResourceId
+            FROM AssignedResource
+            WHERE ServiceAppointmentId = :claimedId
+        ];
+        System.assertEquals(1, rows.size(), 'Claim should leave one Assigned Resource');
+        System.assertEquals(
+            resource.Id,
+            rows[0].ServiceResourceId,
+            'Claiming resource should own the assignment'
+        );
     }
 
     /**
@@ -878,13 +890,7 @@ private class FsSSMapLayersServiceTest {
             ServiceAppointmentId = appointment.Id,
             ServiceResourceId = resource.Id
         );
-        FS_Self_Scheduling_Config__mdt record = new FS_Self_Scheduling_Config__mdt(
-            Bypass_Fsl_Schedule_Here__c = false,
-            Scheduling_Policy_Name__c = 'Self Scheduling',
-            Target_Status__c = 'Dispatched',
-            Status_Values__c = 'None,Scheduled'
-        );
-        FsSSSelfScheduler.settingsOverride = FsSSConfigParser.fromRecord(record);
+        useClaimSettings(true);
         Test.startTest();
         Id claimedId = FsSSMapLayersService.selfSchedule(appointment.Id, resource.Id);
         Test.stopTest();
@@ -1241,13 +1247,7 @@ private class FsSSMapLayersServiceTest {
             WHERE RelatedRecordId = :UserInfo.getUserId()
             LIMIT 1
         ];
-        FS_Self_Scheduling_Config__mdt record = new FS_Self_Scheduling_Config__mdt(
-            Bypass_Fsl_Schedule_Here__c = false,
-            Scheduling_Policy_Name__c = 'Self Scheduling',
-            Target_Status__c = 'Dispatched',
-            Status_Values__c = 'None,Scheduled'
-        );
-        FsSSSelfScheduler.settingsOverride = FsSSConfigParser.fromRecord(record);
+        useClaimSettings(false);
         Test.startTest();
         Id claimedId = FsSSMapLayersService.selfSchedule(appointment.Id, resource.Id);
         Test.stopTest();
@@ -1266,6 +1266,120 @@ private class FsSSMapLayersServiceTest {
     }
 
     /**
+     * @description Bypass off calls scheduleHere when another resource is assigned.
+     */
+    @IsTest
+    static void selfScheduleUsesScheduleHereForOtherResource() {
+        ServiceAppointment appointment = [
+            SELECT Id
+            FROM ServiceAppointment
+            WHERE Subject = 'Ready Nearby'
+            LIMIT 1
+        ];
+        ServiceResource resource = [
+            SELECT Id
+            FROM ServiceResource
+            WHERE RelatedRecordId = :UserInfo.getUserId()
+            LIMIT 1
+        ];
+        Id otherId = otherResourceId(resource.Id);
+        Datetime startTime = System.now().addHours(-2);
+        update new ServiceAppointment(
+            Id = appointment.Id,
+            SchedStartTime = startTime,
+            SchedEndTime = startTime.addMinutes(60)
+        );
+        insert new AssignedResource(
+            ServiceAppointmentId = appointment.Id,
+            ServiceResourceId = otherId
+        );
+        useClaimSettings(false);
+        Test.startTest();
+        Id claimedId = FsSSMapLayersService.selfSchedule(appointment.Id, resource.Id);
+        Test.stopTest();
+        ServiceAppointment claimed = [
+            SELECT Status, SchedStartTime
+            FROM ServiceAppointment
+            WHERE Id = :claimedId
+        ];
+        System.assertEquals(
+            'Dispatched',
+            claimed.Status,
+            'scheduleHere should dispatch an appointment assigned to someone else'
+        );
+        System.assertEquals(
+            true,
+            claimed.SchedStartTime > startTime,
+            'scheduleHere stub should move the scheduled start'
+        );
+        Integer assigned = [
+            SELECT COUNT()
+            FROM AssignedResource
+            WHERE ServiceAppointmentId = :claimedId
+        ];
+        System.assertEquals(1, assigned, 'scheduleHere stub should leave the existing assignment');
+    }
+
+    /**
+     * @description Bypass off calls scheduleHere when this resource is already assigned.
+     */
+    @IsTest
+    static void selfScheduleUsesScheduleHereForOwnAssignment() {
+        ServiceAppointment appointment = [
+            SELECT Id
+            FROM ServiceAppointment
+            WHERE Subject = 'Ready Nearby'
+            LIMIT 1
+        ];
+        ServiceResource resource = [
+            SELECT Id
+            FROM ServiceResource
+            WHERE RelatedRecordId = :UserInfo.getUserId()
+            LIMIT 1
+        ];
+        Datetime startTime = System.now().addHours(-2);
+        update new ServiceAppointment(
+            Id = appointment.Id,
+            SchedStartTime = startTime,
+            SchedEndTime = startTime.addMinutes(60)
+        );
+        insert new AssignedResource(
+            ServiceAppointmentId = appointment.Id,
+            ServiceResourceId = resource.Id
+        );
+        useClaimSettings(false);
+        Test.startTest();
+        Id claimedId = FsSSMapLayersService.selfSchedule(appointment.Id, resource.Id);
+        Test.stopTest();
+        ServiceAppointment claimed = [
+            SELECT Status, SchedStartTime
+            FROM ServiceAppointment
+            WHERE Id = :claimedId
+        ];
+        System.assertEquals(
+            'Dispatched',
+            claimed.Status,
+            'scheduleHere should dispatch an appointment already assigned to this resource'
+        );
+        System.assertEquals(
+            true,
+            claimed.SchedStartTime > startTime,
+            'scheduleHere stub should move the scheduled start'
+        );
+        List<AssignedResource> rows = [
+            SELECT ServiceResourceId
+            FROM AssignedResource
+            WHERE ServiceAppointmentId = :claimedId
+        ];
+        System.assertEquals(1, rows.size(), 'scheduleHere stub should keep the existing assignment');
+        System.assertEquals(
+            resource.Id,
+            rows[0].ServiceResourceId,
+            'Existing assignment should stay with the claiming resource'
+        );
+    }
+
+    /**
      * @description Claim rejects null appointment or resource Ids.
      */
     @IsTest
@@ -1279,6 +1393,20 @@ private class FsSSMapLayersServiceTest {
         }
         Test.stopTest();
         System.assertEquals(true, threw, 'Null Ids must be rejected');
+    }
+
+    /**
+     * @description Pins claim settings so tests choose scheduleHere or forceSchedule.
+     * @param bypassScheduleHere True when claim should skip FSL.ScheduleService.scheduleHere.
+     */
+    private static void useClaimSettings(Boolean bypassScheduleHere) {
+        FS_Self_Scheduling_Config__mdt record = new FS_Self_Scheduling_Config__mdt(
+            Bypass_Fsl_Schedule_Here__c = bypassScheduleHere,
+            Scheduling_Policy_Name__c = 'Self Scheduling',
+            Target_Status__c = 'Dispatched',
+            Status_Values__c = 'None,Scheduled'
+        );
+        FsSSSelfScheduler.settingsOverride = FsSSConfigParser.fromRecord(record);
     }
 
     private class AppointmentSpec {

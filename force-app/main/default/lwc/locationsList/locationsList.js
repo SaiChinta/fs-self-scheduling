@@ -14,6 +14,7 @@ export default class LocationsList extends LightningElement {
   @api selfScheduleAppointment;
   @api isIos;
   @api handleError;
+  @api scheduleErrors = [];
 
   mainTemplate;
   headerElement;
@@ -21,6 +22,8 @@ export default class LocationsList extends LightningElement {
 
   showPopover = false;
   actionButtonIndexClicked;
+  pendingErrorExpand = false;
+  _scheduleErrorsVisible = false;
 
   init = false;
   expanded = false;
@@ -33,6 +36,11 @@ export default class LocationsList extends LightningElement {
     this.listElement = this.template.querySelector(".list");
     if (this.listElement) {
       this.listElement.style.paddingBottom = this.isIos?.() ? IOS_MARGIN : "0";
+    }
+    if (this.pendingErrorExpand && this.mainTemplate) {
+      this.pendingErrorExpand = false;
+      this.openLocationsList();
+      this.scrollScheduleErrorsIntoView();
     }
     if (!this.init && this.headerElement) {
       this.detectDrag();
@@ -125,6 +133,29 @@ export default class LocationsList extends LightningElement {
     this.showPopover = false;
   };
 
+  @api
+  get scheduleErrorsVisible() {
+    return this._scheduleErrorsVisible;
+  }
+
+  set scheduleErrorsVisible(value) {
+    const open = value === true;
+    const becameVisible = open && this._scheduleErrorsVisible !== true;
+    this._scheduleErrorsVisible = open;
+    if (becameVisible) {
+      this.pendingErrorExpand = true;
+      this.openLocationsList();
+      this.scrollScheduleErrorsIntoView();
+    }
+  }
+
+  get showScheduleErrorPanel() {
+    return (
+      this._scheduleErrorsVisible === true &&
+      (this.scheduleErrors || []).length > 0
+    );
+  }
+
   get loaded() {
     return !!this.currentObject?.label;
   }
@@ -209,6 +240,16 @@ export default class LocationsList extends LightningElement {
 
   get containerHeight() {
     return this.getBoundingClientRect().height || window.innerHeight;
+  }
+
+  scrollScheduleErrorsIntoView() {
+    // eslint-disable-next-line @lwc/lwc/no-async-operation
+    window.setTimeout(() => {
+      const panel = this.template.querySelector(".schedule-error-panel");
+      if (panel) {
+        panel.scrollIntoView({ block: "end" });
+      }
+    }, 80);
   }
 
   openLocationsList() {

@@ -50,6 +50,7 @@ export default class MobileMapLayersMain extends NavigationMixin(
   };
   claimedAppointmentIds = new Set();
   debugVisible = false;
+  listErrorsVisible = false;
   debugResourceId = "";
   debugLatitude = "";
   debugLongitude = "";
@@ -194,6 +195,7 @@ export default class MobileMapLayersMain extends NavigationMixin(
     event.stopPropagation();
     this.claimedAppointmentIds = new Set();
     this.diagnosticErrors = [];
+    this.listErrorsVisible = false;
     this.log("refresh", "reloading config, resource, and markers");
     await this.loadConfig();
     await this.loadResourceContext();
@@ -568,7 +570,13 @@ export default class MobileMapLayersMain extends NavigationMixin(
       );
     } catch (error) {
       this.log("selfSchedule failed", this.toErrorMessage(error));
-      this.recordError("selfSchedule", error);
+      this.recordError("selfSchedule", error, {
+        appointmentId: marker.value.id,
+        resourceId: this.resourceId
+      });
+      if (this.settings.debugEnabled) {
+        this.listErrorsVisible = true;
+      }
       this.handleError(error);
     }
   };
@@ -590,6 +598,7 @@ export default class MobileMapLayersMain extends NavigationMixin(
     if (this.tapTimes.length >= 5) {
       this.tapTimes = [];
       this.debugVisible = !this.debugVisible;
+      this.listErrorsVisible = !this.listErrorsVisible;
     }
   }
 
@@ -751,13 +760,27 @@ export default class MobileMapLayersMain extends NavigationMixin(
     this.executionTrace = [...this.executionTrace, row];
   }
 
-  recordError(source, error) {
+  recordError(source, error, context) {
+    const appointmentId = context?.appointmentId
+      ? String(context.appointmentId)
+      : "";
+    const resourceId = context?.resourceId ? String(context.resourceId) : "";
+    const detailParts = [];
+    if (appointmentId) {
+      detailParts.push("Appointment " + appointmentId);
+    }
+    if (resourceId) {
+      detailParts.push("Resource " + resourceId);
+    }
     this.diagnosticErrors = [
       ...this.diagnosticErrors,
       {
         key: "e-" + this.diagnosticErrors.length,
         source,
-        message: this.toErrorMessage(error)
+        message: this.toErrorMessage(error),
+        appointmentId,
+        resourceId,
+        detail: detailParts.join(" · ")
       }
     ];
   }

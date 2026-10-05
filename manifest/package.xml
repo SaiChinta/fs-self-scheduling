@@ -35,6 +35,7 @@
         <members>FS_Self_Scheduling_Config__mdt.Status_Values__c</members>
         <members>FS_Self_Scheduling_Config__mdt.Target_Status__c</members>
         <members>ServiceAppointment.FS_Ready_Now__c</members>
+        <members>WorkOrder.FS_Ready_Now__c</members>
         <members>WorkOrderLineItem.FS_Ready_Now__c</members>
         <name>CustomField</name>
     </types>

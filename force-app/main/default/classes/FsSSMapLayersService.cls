@@ -303,7 +303,7 @@ public with sharing class FsSSMapLayersService {
     }
 
     /**
-     * @description Claims an appointment for the resource using scheduleHere, then dispatches it.
+     * @description Claims an appointment for the resource, then dispatches it.
      * @param appointmentId Service Appointment Id.
      * @param resourceId Service Resource Id.
      * @return Claimed appointment Id.

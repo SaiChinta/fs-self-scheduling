@@ -72,6 +72,33 @@
   background-color: white;
 }
 
+.schedule-error-panel {
+  margin: 8px 12px 16px;
+  background: #fef1ee;
+  border: 1px solid #ba0517;
+  border-radius: 8px;
+}
+
+.schedule-error-title {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ba0517;
+}
+
+.schedule-error-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 12px;
+  color: #ba0517;
+}
+
+.schedule-error-detail {
+  display: block;
+  color: #444444;
+  font-size: 11px;
+}
+
 .tile-subtitle {
   white-space: normal;
   line-height: 1.35;

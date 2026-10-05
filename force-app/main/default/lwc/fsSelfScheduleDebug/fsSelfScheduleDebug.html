@@ -84,23 +84,26 @@
         <p class="hint">No appointment query has run yet.</p>
       </template>
 
-      <template lwc:if={hasErrors}>
-        <h3 class="section-title section-title_error">Errors</h3>
-        <ul class="error-list">
-          <template for:each={diagnosticErrors} for:item="err">
-            <li key={err.key}>
-              <strong>{err.source}:</strong> {err.message}
-            </li>
-          </template>
-        </ul>
-      </template>
-
       <h3 class="section-title">Execution trace</h3>
       <ul class="trace-list">
         <template for:each={executionTrace} for:item="entry">
           <li key={entry.key}>{entry.text}</li>
         </template>
       </ul>
+
+      <template lwc:if={hasErrors}>
+        <h3 class="section-title section-title_error">Errors</h3>
+        <ul class="error-list">
+          <template for:each={diagnosticErrors} for:item="err">
+            <li key={err.key}>
+              <strong>{err.source}:</strong> {err.message}
+              <template lwc:if={err.detail}>
+                <span class="error-detail">{err.detail}</span>
+              </template>
+            </li>
+          </template>
+        </ul>
+      </template>
     </div>
   </template>
 </template>

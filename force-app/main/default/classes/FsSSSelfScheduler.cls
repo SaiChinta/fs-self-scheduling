@@ -1,8 +1,15 @@
 /**
- * @description Claims a Ready Now Service Appointment for a technician using
- *              FSL.ScheduleService.scheduleHere and then sets Status to Dispatched.
+ * @description Claims a Ready Now Service Appointment for a technician and then
+ *              sets Status to Dispatched. Bypass FSL Schedule Here chooses
+ *              forceSchedule or FSL.ScheduleService.scheduleHere.
  */
 public with sharing class FsSSSelfScheduler {
+    /** @description No Assigned Resource exists for the appointment. */
+    private static final String ASSIGNMENT_NONE = 'NONE';
+    /** @description The claiming resource already owns the appointment. */
+    private static final String ASSIGNMENT_OWN = 'OWN';
+    /** @description A different resource owns the appointment. */
+    private static final String ASSIGNMENT_OTHER = 'OTHER';
     /**
      * @description Inputs for a single scheduleHere call.
      */
@@ -26,8 +33,9 @@ public with sharing class FsSSSelfScheduler {
 
     /**
      * @description Pins the appointment to the resource at now, then dispatches it.
-     *              When this resource is already assigned, times are updated and
-     *              no second Assigned Resource is inserted.
+     *              Bypass FSL Schedule Here selects forceSchedule. When the flag
+     *              is false, FSL.ScheduleService.scheduleHere runs for every
+     *              assignment state.
      * @param appointmentId Service Appointment Id.
      * @param resourceId Service Resource Id.
      * @return The dispatched Service Appointment Id.
@@ -44,20 +52,18 @@ public with sharing class FsSSSelfScheduler {
             : FsSSConfigParser.loadDefault();
         ServiceAppointment appointment = lockAppointment(appointmentId);
         validateReadyNow(appointment, settings);
-        Boolean alreadyAssignedToResource = hasOwnAssignment(
+        String assignmentState = readAssignmentState(
             appointment.Id,
             resourceId
         );
-        if (settings.bypassFslScheduleHere || alreadyAssignedToResource) {
-            forceSchedule(appointment, resourceId, alreadyAssignedToResource);
+        if (settings.bypassFslScheduleHere) {
+            forceSchedule(appointment, resourceId, assignmentState);
         } else {
-            Id policyId = resolvePolicyId(settings.schedulingPolicyName);
-            ScheduleRequest request = new ScheduleRequest();
-            request.startTime = System.now();
-            request.policyId = policyId;
-            request.appointmentId = appointment.Id;
-            request.resourceId = resourceId;
-            scheduleHere(request);
+            scheduleWithPolicy(
+                appointment.Id,
+                resourceId,
+                settings.schedulingPolicyName
+            );
         }
         dispatchAppointment(appointment.Id, settings.targetStatus);
         return appointment.Id;
@@ -121,13 +127,12 @@ public with sharing class FsSSSelfScheduler {
     }
 
     /**
-     * @description True when this resource already owns the appointment.
-     *              Throws when another resource is assigned.
+     * @description Reads whether the claiming resource, another resource, or nobody is assigned.
      * @param appointmentId Service Appointment Id.
      * @param resourceId Service Resource Id being claimed.
-     * @return True when an Assigned Resource for this resource already exists.
+     * @return ASSIGNMENT_NONE, ASSIGNMENT_OWN, or ASSIGNMENT_OTHER.
      */
-    private static Boolean hasOwnAssignment(Id appointmentId, Id resourceId) {
+    private static String readAssignmentState(Id appointmentId, Id resourceId) {
         if (!Schema.sObjectType.AssignedResource.isAccessible()) {
             throw auraError('You do not have permission to self-schedule.');
         }
@@ -139,7 +144,7 @@ public with sharing class FsSSSelfScheduler {
             WITH USER_MODE
         ];
         if (ownCount > 0) {
-            return true;
+            return ASSIGNMENT_OWN;
         }
         Integer assignedCount = [
             SELECT COUNT()
@@ -148,9 +153,28 @@ public with sharing class FsSSSelfScheduler {
             WITH USER_MODE
         ];
         if (assignedCount > 0) {
-            throw auraError('This appointment is already assigned.');
+            return ASSIGNMENT_OTHER;
         }
-        return false;
+        return ASSIGNMENT_NONE;
+    }
+
+    /**
+     * @description Calls scheduleHere using the configured scheduling policy.
+     * @param appointmentId Service Appointment Id.
+     * @param resourceId Service Resource Id.
+     * @param policyName Scheduling policy name from CMDT.
+     */
+    private static void scheduleWithPolicy(
+        Id appointmentId,
+        Id resourceId,
+        String policyName
+    ) {
+        ScheduleRequest request = new ScheduleRequest();
+        request.startTime = System.now();
+        request.policyId = resolvePolicyId(policyName);
+        request.appointmentId = appointmentId;
+        request.resourceId = resourceId;
+        scheduleHere(request);
     }
 
     /**
@@ -186,6 +210,8 @@ public with sharing class FsSSSelfScheduler {
 
     /**
      * @description Calls FSL.ScheduleService.scheduleHere, or a test stub.
+     *              The stub pins times and inserts an Assigned Resource only when
+     *              the appointment has none, so a second row is not required.
      * @param request Start time, policy, appointment and resource.
      */
     @TestVisible
@@ -196,6 +222,15 @@ public with sharing class FsSSSelfScheduler {
                 SchedStartTime = request.startTime,
                 SchedEndTime = request.startTime.addMinutes(60)
             );
+            Integer assignedCount = [
+                SELECT COUNT()
+                FROM AssignedResource
+                WHERE ServiceAppointmentId = :request.appointmentId
+                WITH USER_MODE
+            ];
+            if (assignedCount > 0) {
+                return;
+            }
             insert as user new AssignedResource(
                 ServiceAppointmentId = request.appointmentId,
                 ServiceResourceId = request.resourceId
@@ -214,17 +249,111 @@ public with sharing class FsSSSelfScheduler {
     }
 
     /**
-     * @description Pins times and inserts Assigned Resource without scheduleHere.
-     *              When the resource is already assigned, only times are updated.
+     * @description Pins times and Assigned Resource without scheduleHere.
+     *              OWN updates times only. OTHER deletes the other assignment,
+     *              updates times, then inserts the claiming resource. NONE updates
+     *              times and then inserts the assignment.
      * @param appointment Locked appointment.
      * @param resourceId Service Resource Id.
-     * @param alreadyAssigned True when this resource already has Assigned Resource.
+     * @param assignmentState ASSIGNMENT_NONE, ASSIGNMENT_OWN, or ASSIGNMENT_OTHER.
      */
     private static void forceSchedule(
         ServiceAppointment appointment,
         Id resourceId,
-        Boolean alreadyAssigned
+        String assignmentState
     ) {
+        if (assignmentState == ASSIGNMENT_OTHER) {
+            replaceOtherAssignment(appointment, resourceId);
+            return;
+        }
+        if (assignmentState == ASSIGNMENT_OWN) {
+            updateScheduleTimes(appointment);
+            return;
+        }
+        updateScheduleTimes(appointment);
+        insertAssignment(appointment.Id, resourceId);
+    }
+
+    /**
+     * @description Replaces another resource's assignment with the claiming resource.
+     * @param appointment Locked appointment.
+     * @param resourceId Service Resource Id being claimed.
+     */
+    private static void replaceOtherAssignment(
+        ServiceAppointment appointment,
+        Id resourceId
+    ) {
+        deleteOtherAssignments(appointment.Id, resourceId);
+        updateScheduleTimes(appointment);
+        if (!resourceAlreadyAssigned(appointment.Id, resourceId)) {
+            insertAssignment(appointment.Id, resourceId);
+        }
+    }
+
+    /**
+     * @description Deletes Assigned Resource rows that belong to a different resource.
+     * @param appointmentId Service Appointment Id.
+     * @param resourceId Service Resource Id that should remain.
+     */
+    private static void deleteOtherAssignments(Id appointmentId, Id resourceId) {
+        if (!Schema.sObjectType.AssignedResource.isDeletable()) {
+            throw auraError('You do not have permission to self-schedule.');
+        }
+        List<AssignedResource> others = [
+            SELECT Id
+            FROM AssignedResource
+            WHERE ServiceAppointmentId = :appointmentId
+            AND ServiceResourceId != :resourceId
+            WITH USER_MODE
+        ];
+        if (others.isEmpty()) {
+            return;
+        }
+        delete as user others;
+    }
+
+    /**
+     * @description True when this resource already has an Assigned Resource row.
+     * @param appointmentId Service Appointment Id.
+     * @param resourceId Service Resource Id.
+     * @return True when the claiming resource is already assigned.
+     */
+    private static Boolean resourceAlreadyAssigned(Id appointmentId, Id resourceId) {
+        Integer ownCount = [
+            SELECT COUNT()
+            FROM AssignedResource
+            WHERE ServiceAppointmentId = :appointmentId
+            AND ServiceResourceId = :resourceId
+            WITH USER_MODE
+        ];
+        return ownCount > 0;
+    }
+
+    /**
+     * @description Inserts one Assigned Resource for the claiming resource.
+     * @param appointmentId Service Appointment Id.
+     * @param resourceId Service Resource Id.
+     */
+    private static void insertAssignment(Id appointmentId, Id resourceId) {
+        if (!Schema.sObjectType.AssignedResource.isCreateable()) {
+            throw auraError('You do not have permission to self-schedule.');
+        }
+        AssignedResource assignment = new AssignedResource(
+            ServiceAppointmentId = appointmentId,
+            ServiceResourceId = resourceId
+        );
+        SObjectAccessDecision assignmentDecision = Security.stripInaccessible(
+            AccessType.CREATABLE,
+            new List<AssignedResource>{ assignment }
+        );
+        insert assignmentDecision.getRecords();
+    }
+
+    /**
+     * @description Sets scheduled start to now and end from the appointment duration.
+     * @param appointment Locked appointment.
+     */
+    private static void updateScheduleTimes(ServiceAppointment appointment) {
         Integer minutes = claimDurationMinutes(appointment);
         Datetime startTime = System.now();
         ServiceAppointment times = new ServiceAppointment(
@@ -237,18 +366,6 @@ public with sharing class FsSSSelfScheduler {
             new List<ServiceAppointment>{ times }
         );
         update timeDecision.getRecords();
-        if (alreadyAssigned) {
-            return;
-        }
-        AssignedResource assignment = new AssignedResource(
-            ServiceAppointmentId = appointment.Id,
-            ServiceResourceId = resourceId
-        );
-        SObjectAccessDecision assignmentDecision = Security.stripInaccessible(
-            AccessType.CREATABLE,
-            new List<AssignedResource>{ assignment }
-        );
-        insert assignmentDecision.getRecords();
     }
 
     /**
@@ -264,7 +381,7 @@ public with sharing class FsSSSelfScheduler {
     }
 
     /**
-     * @description Sets the appointment status after scheduleHere succeeds.
+     * @description Sets the appointment status after scheduling succeeds.
      * @param appointmentId Service Appointment Id.
      * @param targetStatus Status from CMDT, typically Dispatched.
      */

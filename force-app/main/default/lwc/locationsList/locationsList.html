@@ -98,6 +98,21 @@
               </p>
             </div>
           </template>
+          <template lwc:if={showScheduleErrorPanel}>
+            <li class="slds-item schedule-error-panel">
+              <p class="schedule-error-title">Schedule errors</p>
+              <ul class="schedule-error-list">
+                <template for:each={scheduleErrors} for:item="err">
+                  <li key={err.key}>
+                    <strong>{err.source}:</strong> {err.message}
+                    <template lwc:if={err.detail}>
+                      <span class="schedule-error-detail">{err.detail}</span>
+                    </template>
+                  </li>
+                </template>
+              </ul>
+            </li>
+          </template>
         </ul>
       </template>
       <template lwc:else>
