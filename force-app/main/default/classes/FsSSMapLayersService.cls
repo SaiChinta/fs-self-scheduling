@@ -171,9 +171,12 @@ public with sharing class FsSSMapLayersService {
         /** @description Post-claim status */
         @AuraEnabled
         public String targetStatus;
-        /** @description Debug panel gate */
+        /** @description Debug panel gate for the mobile form factor */
         @AuraEnabled
-        public Boolean debugEnabled;
+        public Boolean debugEnabledMobile;
+        /** @description Debug panel gate for the platform form factor */
+        @AuraEnabled
+        public Boolean debugEnabledPlatform;
         /** @description Query cap */
         @AuraEnabled
         public Integer maxResults;
@@ -812,7 +815,8 @@ public with sharing class FsSSMapLayersService {
         dto.statusValues = settings.statusValues;
         dto.schedulingPolicyName = settings.schedulingPolicyName;
         dto.targetStatus = settings.targetStatus;
-        dto.debugEnabled = settings.debugEnabled;
+        dto.debugEnabledMobile = settings.debugEnabledMobile;
+        dto.debugEnabledPlatform = settings.debugEnabledPlatform;
         dto.maxResults = settings.maxResults;
         dto.evaluateTerritoryRules = settings.evaluateTerritoryRules;
         dto.evaluateSkillRules = settings.evaluateSkillRules;

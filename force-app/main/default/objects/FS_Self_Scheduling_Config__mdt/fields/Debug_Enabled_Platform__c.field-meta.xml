@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Debug_Enabled_Platform__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>When true, five taps reveal the debug panel on the platform form factor.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>Debug Enabled Platform</label>
+    <securityClassification>Confidential</securityClassification>
+    <type>Checkbox</type>
+</CustomField>

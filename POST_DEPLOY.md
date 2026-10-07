@@ -12,11 +12,12 @@ Product behaviour (map query, claim, policy matching) is in `README.md`.
 | Public group | `FS_FieldResources_Team` (label **FS Field Resources Team**) | Membership is granted by the User Access Policy when the access permission set is assigned. |
 | User Access Policy | `FS_FieldResources_Team_Membership` | Active. Create and Update. Grants group **FS Field Resources Team** to users who have **FS SelfScheduling Access**. |
 | Sharing rule | `Ready_Now_Appointments_Mobile` | Edit on Service Appointments where `FS_Ready_Now__c` is true, shared to that group. |
+| Sharing rule | `Ready_Now_Work_Orders` | Read on Work Orders where `FS_Ready_Now__c` is true, shared to that group. |
 | Briefcase | `FS_SelfScheduling` (label **FS Self Scheduling**, High Volume, Active) | Not assigned to a mobile configuration until you do it in Setup. |
 | Global / screen action | `FS_SelfScheduling` (label **Self Scheduling**, LWC `mobileMapLayersMain`) | Not on any publisher or page layout. |
 | Lightning tab | `FS_SelfScheduling` | Visible via the permission set. |
 | Lightning app | `FS_SelfScheduling` (label **FS Self Scheduling**) | Home + Self Scheduling tab. |
-| Custom fields | `ServiceAppointment.FS_Ready_Now__c`, `WorkOrderLineItem.FS_Ready_Now__c` | Label **Ready Now**. Not on page layouts. |
+| Custom fields | `ServiceAppointment.FS_Ready_Now__c`, `WorkOrder.FS_Ready_Now__c`, `WorkOrderLineItem.FS_Ready_Now__c` | Label **Ready Now**. Not on page layouts. |
 | CMDT record | `FS_Self_Scheduling_Config.Default` | See CMDT section. Policy name must exist in the org. |
 | FlexiPage | `ClonedServiceAppointmentRecordPageForApp` | Not activated. Also references `fsShowRelatedAppointments`, which is **not** in this package. Prefer adding `fsSelfScheduleRecordPage` to an existing Service Appointment page. |
 
@@ -72,7 +73,8 @@ Manual group membership remains a fallback if the policy cannot run.
 ### Sharing
 
 1. Setup → Public Groups → **FS Field Resources Team**. After the policy runs, technicians with the access permission set should appear as members.
-2. Confirm sharing rule **Ready Now Appointments to Mobile Users** (`Ready_Now_Appointments_Mobile`) is active:
+2. Confirm sharing rule **Ready Now Work Orders to Mobile Users** (`Ready_Now_Work_Orders`) is active: object Work Order, **Ready Now** equals True, share with FS Field Resources Team, access Read, records owned by all.
+3. Confirm sharing rule **Ready Now Appointments to Mobile Users** (`Ready_Now_Appointments_Mobile`) is active:
    - Object: Service Appointment
    - Criteria: `Ready Now` equals True
    - Share with: FS Field Resources Team
@@ -94,6 +96,7 @@ Users **not** in the group will not see other people’s Ready Now appointments,
 The fields deploy but are not placed on layouts. Add **Ready Now** (`FS_Ready_Now__c`) to:
 
 - Service Appointment page layouts used by dispatchers and technicians
+- Work Order page layouts used by dispatchers
 - Work Order Line Item page layouts used for priming and skill matching
 
 Optional: add the same fields to Lightning record pages / dynamic forms if the org uses those instead of classic layouts.
@@ -110,12 +113,13 @@ Setup → Custom Metadata Types → **FS Self Scheduling Config** → **Default*
 | Boolean Filters | `FS_Ready_Now__c=true` | Map query filter. Do not use this field to define sharing. |
 | Scheduling Policy Name | `Self Scheduling` | **Must be the exact Name of an FSL Scheduling Policy in this org.** Create a policy named Self Scheduling, or change this to an existing policy (for example Customer First or Standard). Territory and skill matching read that policy’s work-rule types. |
 | Target Status | `Dispatched` | Status set after a successful claim. |
-| Debug Enabled | `true` | Shows the Debug chip. Five-tap on the map also opens debug on phone. |
+| Debug Enabled Mobile | `true` | Debug on phones (`Small`). Five taps, and the list error panel after a failed claim. |
+| Debug Enabled Platform | `true` | Debug on desktop and tablet (`Medium` and `Large`), including the Debug chip. |
 | Max Results | `200` | Cap on the radius query. |
 | Evaluate Territory Rules | `true` | Appointment territory must be in the resource’s Service Territory Member set. |
 | Evaluate Skill Rules | `true` | Parent Skill Requirements versus Service Resource Skills. |
 | Card Detail Fields | `Work Type:WorkType.Name,Duration(Mins):DurationInMinutes,Contact Name:Contact.Name,Contact Phone:Contact.Phone` | Label:FieldApiName pairs on the marker card. |
-| Bypass FSL Schedule Here | `true` | When true, claim pins times and inserts Assigned Resource without `FSL.ScheduleService.scheduleHere`. Turn off only if Enhanced Scheduling is enabled and you want the engine to pin the appointment. |
+| Bypass FSL Schedule Here | `true` | When true, claim sets times and the Assigned Resource without `FSL.ScheduleService.scheduleHere`. A different resource is replaced: delete that assignment, set the times, then insert the claiming resource. Turn off only if Enhanced Scheduling is enabled and you want the engine to pin the appointment. |
 
 CMDT access is under **Custom Metadata Types**, not Object Settings.
 
@@ -190,7 +194,7 @@ Create unassigned work the map can claim:
 1. Work Order Line Item: **Ready Now** = true, latitude/longitude within the CMDT radius (default 10 km) of the tester (device GPS, or a known origin if GPS is denied).
 2. Skill Requirements on that WOLI if skill matching should pass.
 3. Child Service Appointment: **Ready Now** = true, status **None** or **Scheduled**, same coordinates and territory, duration set.
-4. No Assigned Resource for a first-time claim. If the appointment is already assigned to **this** technician, claim updates scheduled start/end and sets **Dispatched**. If it is assigned to a **different** resource, claim is rejected.
+4. No Assigned Resource is required for a first claim. If this technician is already assigned, claim updates the scheduled times and sets **Dispatched**. If a different resource is assigned and Bypass FSL Schedule Here is on, claim replaces that assignment and sets **Dispatched**.
 
 ## 10. Smoke checks
 
@@ -200,14 +204,14 @@ Create unassigned work the map can claim:
 - List grabber expands the sheet and leaves a band of map visible.
 - Confirm modal: **No** left, **Yes** right, buttons spanning the footer.
 - Self Schedule sets status **Dispatched** and leaves a single Assigned Resource.
-- Debug chip is visible when Debug Enabled is true.
+- Debug chip is visible on desktop and tablet when Debug Enabled Platform is true. Phones use Debug Enabled Mobile.
 - Open Record on desktop/tablet opens the Service Appointment as a console workspace tab (or a Lightning record page if the app is not a console). It must not open a blank browser tab.
 
 ### Field Service Mobile
 
 - After sync, primed Ready Now rows are on the device.
 - Bottom sheet pull-up stops short of the top (map still visible).
-- Claim succeeds for unassigned work and for work already assigned to the logged-in resource.
+- Claim succeeds for unassigned work, work already assigned to the logged-in resource, and, when Bypass FSL Schedule Here is on, work assigned to a different resource.
 - Open Record still opens the appointment in Field Service Mobile (unchanged deep link).
 - A second technician in **FS Field Resources Team** can see the same Ready Now appointments. A user **not** in the group should not.
 
@@ -224,8 +228,8 @@ Open Debug and check origin, radius unit (`km`), Ready Now, status, skipped terr
 - [ ] User Access Policy **FS_FieldResources_Team_Membership** is Active
 - [ ] Policy applied to existing users if they already had the access permission set
 - [ ] Those users are members of **FS Field Resources Team**
-- [ ] Sharing rule active on `FS_Ready_Now__c`
-- [ ] Ready Now on Service Appointment and Work Order Line Item layouts
+- [ ] Sharing rules active for Ready Now Service Appointments (Edit) and Ready Now Work Orders (Read)
+- [ ] Ready Now on Service Appointment, Work Order, and Work Order Line Item layouts
 - [ ] CMDT Default policy name matches an org FSL policy
 - [ ] Status and target status match the org picklist
 - [ ] Each tester has Service Resource + territory member + skills

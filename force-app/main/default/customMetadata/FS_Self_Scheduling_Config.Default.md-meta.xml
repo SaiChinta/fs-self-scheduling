@@ -27,7 +27,11 @@
         <value xsi:type="xsd:string">Dispatched</value>
     </values>
     <values>
-        <field>Debug_Enabled__c</field>
+        <field>Debug_Enabled_Mobile__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Debug_Enabled_Platform__c</field>
         <value xsi:type="xsd:boolean">true</value>
     </values>
     <values>
@@ -51,4 +55,3 @@
         <value xsi:type="xsd:boolean">true</value>
     </values>
 </CustomMetadata>
-

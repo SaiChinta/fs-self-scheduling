@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
-    <fullName>Debug_Enabled__c</fullName>
+    <fullName>Debug_Enabled_Mobile__c</fullName>
     <defaultValue>false</defaultValue>
-    <description>When true, five taps reveal the debug panel for resource and location overrides.</description>
+    <description>When true, five taps reveal the debug panel on the mobile form factor.</description>
     <fieldManageability>DeveloperControlled</fieldManageability>
-    <label>Debug Enabled</label>
+    <label>Debug Enabled Mobile</label>
     <securityClassification>Confidential</securityClassification>
     <type>Checkbox</type>
 </CustomField>

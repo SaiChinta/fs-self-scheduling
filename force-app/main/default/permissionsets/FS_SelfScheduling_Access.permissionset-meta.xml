@@ -48,7 +48,12 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>FS_Self_Scheduling_Config__mdt.Debug_Enabled__c</field>
+        <field>FS_Self_Scheduling_Config__mdt.Debug_Enabled_Mobile__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>FS_Self_Scheduling_Config__mdt.Debug_Enabled_Platform__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

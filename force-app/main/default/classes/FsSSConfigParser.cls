@@ -32,8 +32,10 @@ public with sharing class FsSSConfigParser {
         public String schedulingPolicyName;
         /** @description Status applied after a successful claim */
         public String targetStatus;
-        /** @description Whether the debug panel may be revealed */
-        public Boolean debugEnabled;
+        /** @description Whether the debug panel may be revealed on mobile */
+        public Boolean debugEnabledMobile;
+        /** @description Whether the debug panel may be revealed on platform */
+        public Boolean debugEnabledPlatform;
         /** @description Candidate query row cap */
         public Integer maxResults;
         /** @description When true, evaluate Match Territory and location work rules */
@@ -75,7 +77,8 @@ public with sharing class FsSSConfigParser {
                     Boolean_Filters__c,
                     Scheduling_Policy_Name__c,
                     Target_Status__c,
-                    Debug_Enabled__c,
+                    Debug_Enabled_Mobile__c,
+                    Debug_Enabled_Platform__c,
                     Max_Results__c,
                     Evaluate_Territory_Rules__c,
                     Evaluate_Skill_Rules__c,
@@ -202,7 +205,8 @@ public with sharing class FsSSConfigParser {
         settings.targetStatus = String.isBlank(targetStatus)
             ? DEFAULT_TARGET_STATUS
             : targetStatus;
-        settings.debugEnabled = record == null ? false : record.Debug_Enabled__c;
+        settings.debugEnabledMobile = record != null && record.Debug_Enabled_Mobile__c == true;
+        settings.debugEnabledPlatform = record != null && record.Debug_Enabled_Platform__c == true;
         settings.bypassFslScheduleHere = record == null
             ? true
             : record.Bypass_Fsl_Schedule_Here__c != false;

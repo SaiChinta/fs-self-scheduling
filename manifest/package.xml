@@ -25,7 +25,8 @@
         <members>FS_Self_Scheduling_Config__mdt.Boolean_Filters__c</members>
         <members>FS_Self_Scheduling_Config__mdt.Bypass_Fsl_Schedule_Here__c</members>
         <members>FS_Self_Scheduling_Config__mdt.Card_Detail_Fields__c</members>
-        <members>FS_Self_Scheduling_Config__mdt.Debug_Enabled__c</members>
+        <members>FS_Self_Scheduling_Config__mdt.Debug_Enabled_Mobile__c</members>
+        <members>FS_Self_Scheduling_Config__mdt.Debug_Enabled_Platform__c</members>
         <members>FS_Self_Scheduling_Config__mdt.Distance_Unit__c</members>
         <members>FS_Self_Scheduling_Config__mdt.Evaluate_Skill_Rules__c</members>
         <members>FS_Self_Scheduling_Config__mdt.Evaluate_Territory_Rules__c</members>

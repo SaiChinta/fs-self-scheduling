@@ -93,7 +93,8 @@ private class FsSSMapLayersServiceTest {
             Boolean_Filters__c = 'FS_Ready_Now__c=true,BadToken,Other__c=false',
             Search_Radius__c = 15,
             Distance_Unit__c = 'km',
-            Debug_Enabled__c = true,
+            Debug_Enabled_Mobile__c = true,
+            Debug_Enabled_Platform__c = false,
             Max_Results__c = 50,
             Target_Status__c = 'Dispatched',
             Evaluate_Territory_Rules__c = true,
@@ -108,6 +109,8 @@ private class FsSSMapLayersServiceTest {
         System.assertEquals(true, settings.skippedBooleanTokens.contains('BadToken'), 'Bad token should be skipped');
         System.assertEquals(true, settings.evaluateTerritoryRules, 'Territory flag should default on');
         System.assertEquals(true, settings.evaluateSkillRules, 'Skill flag should default on');
+        System.assertEquals(true, settings.debugEnabledMobile, 'Mobile debug should be on');
+        System.assertEquals(false, settings.debugEnabledPlatform, 'Platform debug should be off');
     }
 
     /**
@@ -124,6 +127,8 @@ private class FsSSMapLayersServiceTest {
         Test.stopTest();
         System.assertEquals(false, settings.evaluateTerritoryRules, 'Territory flag should be off');
         System.assertEquals(false, settings.evaluateSkillRules, 'Skill flag should be off');
+        System.assertEquals(false, settings.debugEnabledMobile, 'Unset mobile debug should be off');
+        System.assertEquals(false, settings.debugEnabledPlatform, 'Unset platform debug should be off');
     }
 
     /**
@@ -161,6 +166,8 @@ private class FsSSMapLayersServiceTest {
         System.assertEquals(true, config.policyRuleTypes != null, 'Policy rule types list should be present');
         System.assertEquals(UserInfo.getName(), config.userName, 'Config should include the running user name');
         System.assertEquals(true, config.bypassFslScheduleHere, 'Default should bypass scheduleHere');
+        System.assertEquals(true, config.debugEnabledMobile, 'Default should enable mobile debug');
+        System.assertEquals(true, config.debugEnabledPlatform, 'Default should enable platform debug');
         System.assertNotEquals(null, config.cardFieldAccess, 'Card field access should be returned');
         System.assertEquals(true, config.cardFieldAccess.size() > 0, 'Default CMDT should have card field access rows');
         Boolean foundAccessible = false;

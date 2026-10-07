@@ -175,12 +175,18 @@ export default class MobileMapLayersMain extends NavigationMixin(
     this.log("loadConfig", "calling Apex getConfig");
     try {
       this.settings = normalizeConfig(await getConfig());
+      this.settings.debugEnabled = this.isDesktopForm
+        ? this.settings.debugEnabledPlatform
+        : this.settings.debugEnabledMobile;
       this.debugVisible = this.settings.debugEnabled;
       this.log("loadConfig ok", {
         searchRadius: this.settings.searchRadius,
         distanceUnit: this.settings.distanceUnit,
         statusValues: this.settings.statusValues,
         debugEnabled: this.settings.debugEnabled,
+        debugEnabledMobile: this.settings.debugEnabledMobile,
+        debugEnabledPlatform: this.settings.debugEnabledPlatform,
+        formFactor: this.formFactor,
         maxResults: this.settings.maxResults
       });
       this.refreshDiagnostics();

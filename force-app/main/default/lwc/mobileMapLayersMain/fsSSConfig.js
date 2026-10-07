@@ -60,7 +60,13 @@ export function normalizeConfig(source) {
       source?.schedulingPolicyName || source?.Scheduling_Policy_Name__c || "",
     targetStatus:
       source?.targetStatus || source?.Target_Status__c || DEFAULT_TARGET_STATUS,
-    debugEnabled: !!(source?.debugEnabled || source?.Debug_Enabled__c),
+    debugEnabled: false,
+    debugEnabledMobile:
+      source?.debugEnabledMobile === true ||
+      source?.Debug_Enabled_Mobile__c === true,
+    debugEnabledPlatform:
+      source?.debugEnabledPlatform === true ||
+      source?.Debug_Enabled_Platform__c === true,
     maxResults: maxResults > 0 ? maxResults : DEFAULT_MAX_RESULTS,
     evaluateTerritoryRules: isRuleFlagOn(
       source?.evaluateTerritoryRules ?? source?.Evaluate_Territory_Rules__c

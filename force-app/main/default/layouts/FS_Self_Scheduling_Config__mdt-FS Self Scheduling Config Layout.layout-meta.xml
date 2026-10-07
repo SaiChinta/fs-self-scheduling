@@ -54,7 +54,11 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>Debug_Enabled__c</field>
+                <field>Debug_Enabled_Mobile__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Debug_Enabled_Platform__c</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
