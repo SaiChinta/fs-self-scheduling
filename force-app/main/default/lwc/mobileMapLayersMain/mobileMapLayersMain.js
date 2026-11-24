@@ -1,11 +1,9 @@
 import { LightningElement, wire } from "lwc";
 import { getObjectInfos } from "lightning/uiObjectInfoApi";
 import { NavigationMixin } from "lightning/navigation";
-import {
-  IsConsoleNavigation,
-  openTab
-} from "lightning/platformWorkspaceApi";
+import { IsConsoleNavigation, openTab } from "lightning/platformWorkspaceApi";
 import { ShowToastEvent } from "lightning/platformShowToastEvent";
+import { getLocationService } from "lightning/mobileCapabilities";
 import FORM_FACTOR from "@salesforce/client/formFactor";
 import getMapAppointments from "@salesforce/apex/FsSSMapLayersService.getMapAppointments";
 import getResourceContext from "@salesforce/apex/FsSSMapLayersService.getResourceContext";
@@ -23,6 +21,8 @@ const GPS_TIMEOUT_MS = 8000;
 /**
  * @description Self-scheduling map. Loads unassigned Service Appointments inside
  *              a radius of the current origin. Origin defaults to Auckland CBD.
+ *              Device location uses LocationService in Field Service Mobile and
+ *              navigator.geolocation in the browser.
  */
 export default class MobileMapLayersMain extends NavigationMixin(
   LightningElement
@@ -75,6 +75,8 @@ export default class MobileMapLayersMain extends NavigationMixin(
   queriedObjects;
   markerLoadInFlight = false;
   markerLoadQueued = false;
+  resourceContextLoaded = false;
+  pendingLocationFailure = null;
 
   mapOriginSynced = false;
 
@@ -202,6 +204,8 @@ export default class MobileMapLayersMain extends NavigationMixin(
     this.claimedAppointmentIds = new Set();
     this.diagnosticErrors = [];
     this.listErrorsVisible = false;
+    this.pendingLocationFailure = null;
+    this.resourceContextLoaded = false;
     this.log("refresh", "reloading config, resource, and markers");
     await this.loadConfig();
     await this.loadResourceContext();
@@ -235,6 +239,9 @@ export default class MobileMapLayersMain extends NavigationMixin(
     } catch (error) {
       this.log("loadResourceContext failed", this.toErrorMessage(error));
       this.recordError("getResourceContext", error);
+    } finally {
+      this.resourceContextLoaded = true;
+      this.flushPendingLocationFailure();
     }
   }
 
@@ -260,33 +267,190 @@ export default class MobileMapLayersMain extends NavigationMixin(
   }
 
   resolveDeviceLocation() {
-    if (!navigator.geolocation) {
-      this.log("geolocation", "navigator.geolocation is not available");
+    if (this.isOriginPinned()) {
+      this.log("geolocation", "skipped; debug origin is active");
       return;
     }
-    this.log("geolocation", "requesting current position");
+    const locationService = this.getNativeLocationService();
+    if (locationService) {
+      this.requestNativeLocation(locationService);
+      return;
+    }
+    this.requestBrowserLocation();
+  }
+
+  /**
+   * @description Returns LocationService when the native API is available.
+   * @return LocationService instance, or null on desktop/browser.
+   */
+  getNativeLocationService() {
+    try {
+      const locationService = getLocationService();
+      if (
+        locationService &&
+        typeof locationService.isAvailable === "function" &&
+        locationService.isAvailable()
+      ) {
+        return locationService;
+      }
+    } catch (error) {
+      this.log(
+        "geolocation",
+        "LocationService unavailable: " + this.toErrorMessage(error)
+      );
+    }
+    return null;
+  }
+
+  /**
+   * @description Requests one GPS fix through the native LocationService API.
+   * @param locationService Native LocationService instance.
+   */
+  async requestNativeLocation(locationService) {
+    this.log("geolocation", "requesting current position via LocationService");
+    try {
+      const result = await locationService.getCurrentPosition({
+        enableHighAccuracy: true
+      });
+      this.applyDeviceCoords(result?.coords, "LocationService");
+    } catch (error) {
+      this.handleLocationFailure("LocationService", error);
+    }
+  }
+
+  /**
+   * @description Requests one GPS fix through the browser Geolocation API.
+   */
+  requestBrowserLocation() {
+    if (!navigator.geolocation) {
+      this.log("geolocation", "navigator.geolocation is not available");
+      this.handleLocationFailure("geolocation", {
+        code: 2,
+        message: "navigator.geolocation is not available"
+      });
+      return;
+    }
+    this.log("geolocation", "requesting current position via browser");
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        if (this.locationSource === "debug") {
-          this.log("geolocation ignored; debug origin is active");
-          return;
-        }
-        this.resourceLocation = {
-          lat: String(position.coords.latitude),
-          lng: String(position.coords.longitude)
-        };
-        this.locationSource = "device";
-        this.log("geolocation ok", this.originLabel);
-        this.syncMapOrigin();
-        this.refreshDiagnostics();
-        this.refreshMarkers();
+        this.applyDeviceCoords(position?.coords, "browser");
       },
       (error) => {
-        this.log("geolocation failed", error?.message || "unavailable");
-        this.recordError("geolocation", error?.message || "unavailable");
+        this.handleLocationFailure("geolocation", error);
       },
       { enableHighAccuracy: true, timeout: GPS_TIMEOUT_MS, maximumAge: 30000 }
     );
+  }
+
+  /**
+   * @description Applies a device GPS fix as the query origin unless debug pinned it.
+   * @param coords Latitude and longitude from LocationService or the browser.
+   * @param sourceLabel Location API that returned the fix.
+   */
+  applyDeviceCoords(coords, sourceLabel) {
+    if (this.isOriginPinned()) {
+      this.log("geolocation ignored; debug origin is active");
+      return;
+    }
+    if (coords?.latitude == null || coords?.longitude == null) {
+      this.handleLocationFailure(sourceLabel, {
+        message: "coordinates missing"
+      });
+      return;
+    }
+    this.resourceLocation = {
+      lat: String(coords.latitude),
+      lng: String(coords.longitude)
+    };
+    this.locationSource = "device";
+    this.log("geolocation ok", {
+      source: sourceLabel,
+      origin: this.originLabel
+    });
+    this.syncMapOrigin();
+    this.refreshDiagnostics();
+    this.refreshMarkers();
+  }
+
+  /**
+   * @description True when a debug lat/long or debug resource should keep the origin.
+   * @return True when GPS must not replace the current origin.
+   */
+  isOriginPinned() {
+    return (
+      this.locationSource === "debug" ||
+      this.locationSource === "debug-resource"
+    );
+  }
+
+  /**
+   * @description True when a non-default origin is already available as fallback.
+   * @return True when GPS failure should not be recorded as a hard error.
+   */
+  hasFallbackOrigin() {
+    return (
+      this.locationSource === "service-resource" ||
+      this.locationSource === "debug-resource" ||
+      this.locationSource === "debug" ||
+      this.locationSource === "device"
+    );
+  }
+
+  /**
+   * @description Logs a GPS failure and records it only when no fallback origin exists.
+   * @param source Location API name for the debug panel.
+   * @param error Native or browser geolocation error.
+   */
+  handleLocationFailure(source, error) {
+    const message = this.toLocationFailureMessage(error);
+    this.log("geolocation failed", {
+      source,
+      message,
+      originSource: this.locationSource
+    });
+    if (this.hasFallbackOrigin()) {
+      this.log("geolocation", "using fallback origin " + this.locationSource);
+      return;
+    }
+    if (!this.resourceContextLoaded) {
+      this.pendingLocationFailure = { source, error };
+      this.log("geolocation", "deferring failure until resource context loads");
+      return;
+    }
+    this.recordError("geolocation", message);
+  }
+
+  /**
+   * @description Replays a GPS failure after Service Resource context has loaded.
+   */
+  flushPendingLocationFailure() {
+    if (!this.pendingLocationFailure) {
+      return;
+    }
+    const pending = this.pendingLocationFailure;
+    this.pendingLocationFailure = null;
+    this.handleLocationFailure(pending.source, pending.error);
+  }
+
+  /**
+   * @description Maps native and browser geolocation errors to a short message.
+   * @param error Native LocationServiceFailure or browser GeolocationPositionError.
+   * @return Message suitable for the debug panel.
+   */
+  toLocationFailureMessage(error) {
+    const code = error?.code;
+    const messages = {
+      USER_DENIED_PERMISSION:
+        "Location permission denied. Enable Location for Field Service in device settings.",
+      USER_DISABLED_PERMISSION:
+        "Location permission is disabled. Enable it in device settings.",
+      LOCATION_SERVICE_DISABLED: "Device location services are turned off.",
+      SERVICE_NOT_ENABLED: "Native location service is not enabled.",
+      1: "Location permission denied. Enable Location for Field Service in device settings.",
+      2: "Device location is currently unavailable.",
+      3: "Device location request timed out."
+    };
+    return messages[code] || error?.message || "unavailable";
   }
 
   applyObjectInfo(data) {
@@ -345,7 +509,8 @@ export default class MobileMapLayersMain extends NavigationMixin(
       const rows = result.appointments || [];
       this.displaySoql = result.soqlForDisplay || result.soql || "";
       this.lastBooleanClause = result.booleanClause || "(none)";
-      this.lastBindStatuses = (result.bindStatuses || []).join(", ") || "(none)";
+      this.lastBindStatuses =
+        (result.bindStatuses || []).join(", ") || "(none)";
       this.lastBindRadius =
         result.bindRadius == null ? "" : String(result.bindRadius);
       this.lastBindRowLimit =
@@ -365,7 +530,8 @@ export default class MobileMapLayersMain extends NavigationMixin(
         result.skippedSkillCount == null
           ? "0"
           : String(result.skippedSkillCount);
-      this.lastPolicyRuleTypes = (result.policyRuleTypes || []).join(", ") || "(none)";
+      this.lastPolicyRuleTypes =
+        (result.policyRuleTypes || []).join(", ") || "(none)";
       this.lastUnimplementedRuleTypes =
         (result.unimplementedRuleTypes || []).join(", ") || "(none)";
       this.log("getMapAppointments returned", {
