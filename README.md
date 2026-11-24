@@ -160,9 +160,12 @@ The briefcase primes Ready Now Service Appointments, the related Work Order Line
 
 `mobileMapLayersMain` starts from a fixed Auckland coordinate so the map has an origin before a better one arrives.
 
-1. A debug latitude and longitude, once applied, replaces the origin and later GPS fixes are ignored.
-2. Otherwise `navigator.geolocation` sets the origin to the device and marks the source `device`.
+1. A debug latitude and longitude, once applied, replaces the origin and later GPS fixes are ignored. A debug Service Resource (`debug-resource`) is also a pinned origin, so GPS does not overwrite it.
+2. Otherwise the LWC requests the device location and marks the source `device`:
+   - Field Service Mobile and Salesforce mobile use `getLocationService()` from `lightning/mobileCapabilities` when `isAvailable()` is true.
+   - Desktop and browser use `navigator.geolocation`.
 3. The Service Resource last-known location is applied only when the source is not already `device` or `debug`.
+4. If GPS is denied or unavailable and a Service Resource or debug origin already exists, that origin is kept. Permission failures are logged; they are recorded as debug Errors only when there is no fallback origin.
 
 `getMapAppointments` receives that latitude, longitude, and the Service Resource Id.
 
